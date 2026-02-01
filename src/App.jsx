@@ -231,6 +231,11 @@ export default function App() {
         activity: data.activity || 'Online',
         avatar_idx: uid.charCodeAt(0) % PALETTES.length,
       })
+
+      // Request notification permission for incoming calls
+      if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission()
+      }
     }
     setLoading(false)
   }
@@ -515,14 +520,21 @@ export default function App() {
 
       {/* INCOMING CALL MODAL */}
       {incomingCall && callState === 'ringing' && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'fadeIn 0.2s ease' }}>
-          <div style={{ width: 320, background: T.surface, borderRadius: 20, border: `1px solid ${T.accent}44`, overflow: 'hidden', boxShadow: `0 20px 60px rgba(0,0,0,0.6), 0 0 40px ${T.accent}11`, textAlign: 'center', padding: '32px 24px 24px' }}>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>📞</div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: T.text, fontFamily: "'JetBrains Mono',monospace" }}>{incomingCall.fromName}</div>
-            <div style={{ fontSize: 12, color: T.textMuted, fontFamily: "'JetBrains Mono',monospace", marginTop: 4 }}>está te ligando...</div>
-            <div style={{ display: 'flex', gap: 12, marginTop: 24, justifyContent: 'center' }}>
-              <button onClick={declineCall} style={{ padding: '12px 28px', borderRadius: 14, border: 'none', background: T.danger, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: "'JetBrains Mono',monospace" }}>✕ Recusar</button>
-              <button onClick={acceptCall} style={{ padding: '12px 28px', borderRadius: 14, border: 'none', background: T.accent, color: T.bg, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: "'JetBrains Mono',monospace" }}>✓ Atender</button>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(10px)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'fadeIn 0.2s ease' }}>
+          <style>{`
+            @keyframes ringPulse { 0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(53,31,255,0.4); } 50% { transform: scale(1.05); box-shadow: 0 0 0 20px rgba(53,31,255,0); } }
+            @keyframes phoneBounce { 0%, 100% { transform: rotate(-10deg); } 50% { transform: rotate(10deg); } }
+          `}</style>
+          <div style={{ width: 340, background: `linear-gradient(180deg, ${T.surface} 0%, ${T.bg} 100%)`, borderRadius: 24, border: `2px solid ${T.accent}55`, overflow: 'hidden', boxShadow: `0 30px 80px rgba(0,0,0,0.7), 0 0 60px ${T.accent}22`, textAlign: 'center', padding: '36px 28px 28px', animation: 'ringPulse 1.5s ease-in-out infinite' }}>
+            <div style={{ width: 80, height: 80, borderRadius: '50%', background: `linear-gradient(135deg, ${T.accent}, ${T.accentLight})`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', boxShadow: `0 8px 30px ${T.accentGlow}` }}>
+              <span style={{ fontSize: 36, animation: 'phoneBounce 0.5s ease-in-out infinite' }}>📞</span>
+            </div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: T.text, fontFamily: "'Inter', sans-serif", marginBottom: 4 }}>{incomingCall.fromName}</div>
+            <div style={{ fontSize: 13, color: T.textMuted, fontFamily: "'JetBrains Mono',monospace" }}>está te ligando...</div>
+            <div style={{ fontSize: 11, color: T.textDim, fontFamily: "'JetBrains Mono',monospace", marginTop: 8 }}>📹 Chamada de vídeo</div>
+            <div style={{ display: 'flex', gap: 14, marginTop: 28, justifyContent: 'center' }}>
+              <button onClick={declineCall} style={{ padding: '14px 32px', borderRadius: 16, border: 'none', background: T.danger, color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: "'Inter', sans-serif", boxShadow: `0 4px 20px ${T.danger}44`, transition: 'transform 0.15s' }} onMouseOver={e => e.target.style.transform = 'scale(1.05)'} onMouseOut={e => e.target.style.transform = 'scale(1)'}>✕ Recusar</button>
+              <button onClick={acceptCall} style={{ padding: '14px 32px', borderRadius: 16, border: 'none', background: `linear-gradient(135deg, ${T.accent}, ${T.accentLight})`, color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: "'Inter', sans-serif", boxShadow: `0 4px 20px ${T.accentGlow}`, transition: 'transform 0.15s' }} onMouseOver={e => e.target.style.transform = 'scale(1.05)'} onMouseOut={e => e.target.style.transform = 'scale(1)'}>✓ Atender</button>
             </div>
           </div>
         </div>

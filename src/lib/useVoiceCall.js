@@ -10,6 +10,74 @@ const ICE_SERVERS = [
   { urls: 'stun:stun1.l.google.com:19302' },
 ]
 
+// Request notification permission on load
+if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+  Notification.requestPermission()
+}
+
+// Show browser notification for incoming call
+function showCallNotification(callerName) {
+  if (typeof window === 'undefined' || !('Notification' in window)) return
+  if (Notification.permission !== 'granted') return
+  if (document.hasFocus()) return // Don't show if window is focused
+
+  const notification = new Notification('📞 Chamada recebida', {
+    body: `${callerName} está te ligando...`,
+    icon: '/favicon.svg',
+    tag: 'incoming-call',
+    requireInteraction: true,
+    vibrate: [200, 100, 200, 100, 200],
+  })
+
+  notification.onclick = () => {
+    window.focus()
+    notification.close()
+  }
+
+  // Auto close after 30s
+  setTimeout(() => notification.close(), 30000)
+}
+
+// Play ringtone sound
+let ringtoneAudio = null
+function playRingtone() {
+  try {
+    if (ringtoneAudio) {
+      ringtoneAudio.pause()
+      ringtoneAudio.currentTime = 0
+    }
+    // Create a simple ringtone using Web Audio API
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+    const playTone = (freq, startTime, duration) => {
+      const osc = audioCtx.createOscillator()
+      const gain = audioCtx.createGain()
+      osc.connect(gain)
+      gain.connect(audioCtx.destination)
+      osc.frequency.value = freq
+      osc.type = 'sine'
+      gain.gain.setValueAtTime(0.3, startTime)
+      gain.gain.exponentialRampToValueAtTime(0.01, startTime + duration - 0.05)
+      osc.start(startTime)
+      osc.stop(startTime + duration)
+    }
+    // Ring pattern
+    const now = audioCtx.currentTime
+    for (let i = 0; i < 3; i++) {
+      playTone(440, now + i * 0.4, 0.15)
+      playTone(523, now + i * 0.4 + 0.15, 0.15)
+    }
+  } catch (e) {
+    console.warn('Could not play ringtone:', e)
+  }
+}
+
+function stopRingtone() {
+  if (ringtoneAudio) {
+    ringtoneAudio.pause()
+    ringtoneAudio.currentTime = 0
+  }
+}
+
 export function useVoiceCall(userId) {
   const [callState, setCallState] = useState('idle')
   const [callPeers, setCallPeers] = useState({})       // { peerId: { connected, speaking, muted, camOff } }
@@ -166,6 +234,13 @@ export function useVoiceCall(userId) {
       if (activeRef.current) return
       setIncomingCall({ from: peerId, fromName: payload.fromName, room: payload.room })
       setCallState('ringing')
+
+      // Show browser notification
+      showCallNotification(payload.fromName || 'Alguém')
+
+      // Play ringtone sound
+      playRingtone()
+
       return
     }
     if (payload.type === 'call-declined' && payload.to === userId) return
@@ -262,6 +337,7 @@ export function useVoiceCall(userId) {
   // ─── ACCEPT CALL ───
   const acceptCall = useCallback(async () => {
     if (!incomingCall) return
+    stopRingtone()
     const { from: peerId, room: roomId } = incomingCall
     setIncomingCall(null)
     activeRef.current = true
@@ -278,6 +354,7 @@ export function useVoiceCall(userId) {
   // ─── DECLINE CALL ───
   const declineCall = useCallback(() => {
     if (!incomingCall) return
+    stopRingtone()
     sendSignal({ from: userId, to: incomingCall.from, type: 'call-declined', room: incomingCall.room })
     setIncomingCall(null)
     setCallState('idle')
