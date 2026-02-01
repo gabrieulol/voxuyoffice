@@ -83,7 +83,7 @@ export default function VoiceCallBar({
                     avatarIdx={pd.avatar_idx || 0}
                     speaking={peerState.speaking}
                     muted={peerState.muted}
-                    camOff={peerState.camOff !== false}
+                    camOff={peerState.camOff === true}
                     stream={remoteStreams[peerId]}
                     isSelf={false}
                   />
@@ -142,7 +142,8 @@ function VideoTile({ name, emoji, avatarUrl, avatarIdx, speaking, muted, camOff,
     }
   }, [stream])
 
-  const hasVideo = !camOff && stream?.getVideoTracks().length > 0
+  const videoTracks = stream?.getVideoTracks() || []
+  const hasVideo = videoTracks.length > 0 && videoTracks.some(t => t.enabled && t.readyState === 'live')
 
   return (
     <div style={{

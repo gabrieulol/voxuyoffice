@@ -14,7 +14,7 @@ export function useVoiceCall(userId) {
   const [callState, setCallState] = useState('idle')
   const [callPeers, setCallPeers] = useState({})       // { peerId: { connected, speaking, muted, camOff } }
   const [isMuted, setIsMuted] = useState(false)
-  const [isCamOff, setIsCamOff] = useState(true)        // camera OFF by default
+  const [isCamOff, setIsCamOff] = useState(false)        // camera ON by default
   const [speakingUsers, setSpeakingUsers] = useState(new Set())
   const [incomingCall, setIncomingCall] = useState(null)
   const [remoteStreams, setRemoteStreams] = useState({}) // { peerId: MediaStream }
@@ -29,7 +29,7 @@ export function useVoiceCall(userId) {
   const makingOfferRef = useRef({})
   const activeRef = useRef(false)
   const userIdRef = useRef(userId)
-  const isCamOffRef = useRef(true)
+  const isCamOffRef = useRef(false)
   userIdRef.current = userId
 
   // ─── SPEAKING DETECTION ───
@@ -66,7 +66,7 @@ export function useVoiceCall(userId) {
     const info = analyserRef.current[peerId]
     if (info) {
       if (info.animFrame) cancelAnimationFrame(info.animFrame)
-      if (info.audioCtx?.state !== 'closed') info.audioCtx.close().catch(() => {})
+      if (info.audioCtx?.state !== 'closed') info.audioCtx.close().catch(() => { })
       delete analyserRef.current[peerId]
     }
     setSpeakingUsers(prev => { const n = new Set(prev); n.delete(peerId); return n })
@@ -144,7 +144,7 @@ export function useVoiceCall(userId) {
     peersRef.current[peerId] = pc
 
     if (isInitiator) {
-      ;(async () => {
+      ; (async () => {
         makingOfferRef.current[peerId] = true
         try {
           const offer = await pc.createOffer()
@@ -238,7 +238,7 @@ export function useVoiceCall(userId) {
     setCallState('joining')
     callRoomRef.current = roomId
     try {
-      await acquireMedia(false) // start with audio only
+      await acquireMedia(true) // start with video on
       sendSignal({ from: userId, to: '*', type: 'peer-joined', room: roomId })
       existingPeerIds.forEach(pid => { if (pid !== userId) createPeer(pid, true) })
       setCallState('active')
@@ -255,7 +255,7 @@ export function useVoiceCall(userId) {
     activeRef.current = true
     setCallState('joining')
     callRoomRef.current = roomId
-    try { await acquireMedia(false); setCallState('active') }
+    try { await acquireMedia(true); setCallState('active') }
     catch (e) { activeRef.current = false; callRoomRef.current = null; setCallState('idle'); throw e }
   }, [userId, acquireMedia, sendSignal])
 
@@ -268,7 +268,7 @@ export function useVoiceCall(userId) {
     setCallState('joining')
     callRoomRef.current = roomId
     try {
-      await acquireMedia(false)
+      await acquireMedia(true)
       sendSignal({ from: userId, to: '*', type: 'peer-joined', room: roomId })
       createPeer(peerId, true)
       setCallState('active')
@@ -293,8 +293,8 @@ export function useVoiceCall(userId) {
     stopSpeakingDetection(userId)
     Object.keys(analyserRef.current).forEach(stopSpeakingDetection)
     callRoomRef.current = null
-    setCallState('idle'); setCallPeers({}); setIsMuted(false); setIsCamOff(true)
-    isCamOffRef.current = true
+    setCallState('idle'); setCallPeers({}); setIsMuted(false); setIsCamOff(false)
+    isCamOffRef.current = false
     setSpeakingUsers(new Set()); setRemoteStreams({})
   }, [userId, cleanupPeer, stopSpeakingDetection, sendSignal])
 
@@ -320,7 +320,7 @@ export function useVoiceCall(userId) {
           video: { width: { ideal: 320 }, height: { ideal: 240 }, frameRate: { ideal: 15 } },
         })
         const videoTrack = videoStream.getVideoTracks()[0]
-        
+
         // Add to local stream
         localStreamRef.current.addTrack(videoTrack)
         setLocalStream(new MediaStream(localStreamRef.current.getTracks()))
@@ -329,14 +329,14 @@ export function useVoiceCall(userId) {
         Object.entries(peersRef.current).forEach(([peerId, pc]) => {
           try {
             pc.addTrack(videoTrack, localStreamRef.current)
-            // Renegotiate
-            ;(async () => {
-              makingOfferRef.current[peerId] = true
-              const offer = await pc.createOffer()
-              await pc.setLocalDescription(offer)
-              sendSignal({ from: userIdRef.current, to: peerId, type: 'offer', sdp: pc.localDescription.sdp, room: callRoomRef.current })
-              makingOfferRef.current[peerId] = false
-            })()
+              // Renegotiate
+              ; (async () => {
+                makingOfferRef.current[peerId] = true
+                const offer = await pc.createOffer()
+                await pc.setLocalDescription(offer)
+                sendSignal({ from: userIdRef.current, to: peerId, type: 'offer', sdp: pc.localDescription.sdp, room: callRoomRef.current })
+                makingOfferRef.current[peerId] = false
+              })()
           } catch (e) { console.warn('Add video track failed for', peerId, e) }
         })
 
@@ -358,7 +358,7 @@ export function useVoiceCall(userId) {
             // Renegotiate
             const peerId = Object.entries(peersRef.current).find(([_, p]) => p === pc)?.[0]
             if (peerId) {
-              ;(async () => {
+              ; (async () => {
                 makingOfferRef.current[peerId] = true
                 const offer = await pc.createOffer()
                 await pc.setLocalDescription(offer)
