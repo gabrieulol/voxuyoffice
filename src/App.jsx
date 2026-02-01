@@ -4,6 +4,8 @@ import { useRealtime } from './lib/useRealtime'
 import { TILE, MAP_COLS, MAP_ROWS, PROXIMITY_RANGE, VIDEO_RANGE, T, STATUS, PALETTES, MAP, ROOMS, SPAWN_POINTS, dist, canWalk, getRoom, timeNow } from './lib/constants'
 import AuthScreen from './components/AuthScreen'
 import OfficeTile from './components/OfficeTile'
+import VoiceCallBar from './components/VoiceCallBar'
+import { useVoiceCall } from './lib/useVoiceCall'
 
 // ═══════════ MAP AVATAR (SVG) ═══════════
 function MapAvatar({ person, isPlayer, isNearby, isVideo, isSpeaking, onClick, reaction }) {
@@ -11,8 +13,8 @@ function MapAvatar({ person, isPlayer, isNearby, isVideo, isSpeaking, onClick, r
   const [c1, c2] = PALETTES[(person.avatar_idx || 0) % PALETTES.length]
   const st = STATUS[person.status] || STATUS.available
   const r = isPlayer ? 16 : 14
-  const cid = `clip-${person.id || 'p'}-${Math.random().toString(36).slice(2,6)}`
-  const gid = `grad-${person.id || 'p'}-${Math.random().toString(36).slice(2,6)}`
+  const cid = `clip-${person.id || 'p'}-${Math.random().toString(36).slice(2, 6)}`
+  const gid = `grad-${person.id || 'p'}-${Math.random().toString(36).slice(2, 6)}`
 
   return (
     <g onClick={onClick} style={{ cursor: onClick ? 'pointer' : 'default' }}>
@@ -324,30 +326,45 @@ export default function App() {
   const mapW = MAP_COLS * TILE, mapH = MAP_ROWS * TILE
 
   return (
-    <div style={{ width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column', background: T.bg, fontFamily: "'JetBrains Mono',monospace", overflow: 'hidden', color: T.text }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700;800&display=swap');@keyframes fadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}*{box-sizing:border-box;margin:0;padding:0}::-webkit-scrollbar{width:3px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#333;border-radius:3px}`}</style>
+    <div style={{ width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column', background: T.bg, fontFamily: "'Inter', 'JetBrains Mono', sans-serif", overflow: 'hidden', color: T.text }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+        @keyframes fadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+        @keyframes glow{0%,100%{box-shadow:0 0 20px rgba(53,31,255,0.2)}50%{box-shadow:0 0 30px rgba(53,31,255,0.4)}}
+        *{box-sizing:border-box;margin:0;padding:0}
+        ::-webkit-scrollbar{width:4px}
+        ::-webkit-scrollbar-track{background:transparent}
+        ::-webkit-scrollbar-thumb{background:#252532;border-radius:4px}
+        ::-webkit-scrollbar-thumb:hover{background:#303042}
+      `}</style>
 
       {/* HEADER */}
-      <header style={{ height: 48, display: 'flex', alignItems: 'center', padding: '0 16px', borderBottom: `1px solid ${T.border}`, background: T.bg, gap: 10, flexShrink: 0, zIndex: 20 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ width: 30, height: 30, borderRadius: 8, background: `linear-gradient(135deg,${T.accent},#00b37e)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 800, color: T.bg }}>S</div>
+      <header style={{ height: 52, display: 'flex', alignItems: 'center', padding: '0 18px', borderBottom: `1px solid ${T.border}`, background: `linear-gradient(180deg, ${T.surface} 0%, ${T.bg} 100%)`, gap: 12, flexShrink: 0, zIndex: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ width: 34, height: 34, borderRadius: 10, background: `linear-gradient(135deg, ${T.accent}, ${T.accentLight})`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 4px 16px ${T.accentGlow}` }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+            </svg>
+          </div>
           <div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: T.text, lineHeight: 1.2, display: 'flex', alignItems: 'center', gap: 6 }}>Stone HQ<span style={{ fontSize: 8, padding: '2px 6px', background: T.accentDim, color: T.accent, borderRadius: 4, fontWeight: 600 }}>LIVE</span></div>
-            <div style={{ fontSize: 9, color: T.textDim }}>{currentRoom ? `${currentRoom.icon} ${currentRoom.label}` : '...'}</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: T.text, lineHeight: 1.2, display: 'flex', alignItems: 'center', gap: 8 }}>voxuy<span style={{ color: T.accent }}>.office</span><span style={{ fontSize: 8, padding: '3px 8px', background: `linear-gradient(135deg, ${T.accent}, ${T.accentLight})`, color: '#fff', borderRadius: 6, fontWeight: 700, letterSpacing: '0.05em' }}>LIVE</span></div>
+            <div style={{ fontSize: 10, color: T.textDim, fontFamily: "'JetBrains Mono', monospace" }}>{currentRoom ? `${currentRoom.icon} ${currentRoom.label}` : '...'}</div>
           </div>
         </div>
         <div style={{ flex: 1 }} />
-        <button onClick={() => setShowAvatarEditor(true)} style={{ width: 32, height: 32, borderRadius: '50%', border: `2px solid ${T.accent}44`, background: 'linear-gradient(135deg,#6366f1,#818cf8)', cursor: 'pointer', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, flexShrink: 0 }} title="Editar avatar">
+        <button onClick={() => setShowAvatarEditor(true)} style={{ width: 36, height: 36, borderRadius: '50%', border: `2px solid ${T.accent}44`, background: `linear-gradient(135deg, ${T.accent}, ${T.accentLight})`, cursor: 'pointer', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0, boxShadow: `0 4px 12px ${T.accentGlow}`, transition: 'all 0.2s ease' }} title="Editar avatar">
           {player.avatar_url ? <img src={player.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : player.emoji}
         </button>
-        <div style={{ display: 'flex', gap: 3 }}>
+        <div style={{ display: 'flex', gap: 4 }}>
           {Object.entries(STATUS).map(([k, v]) => (
-            <button key={k} onClick={() => handleStatusChange(k)} title={v.label} style={{ width: 26, height: 26, borderRadius: 7, border: player.status === k ? `1.5px solid ${v.color}` : `1px solid ${T.border}`, background: player.status === k ? `${v.color}18` : 'transparent', color: v.color, fontSize: 9, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{v.icon}</button>
+            <button key={k} onClick={() => handleStatusChange(k)} title={v.label} style={{ width: 28, height: 28, borderRadius: 8, border: player.status === k ? `2px solid ${v.color}` : `1px solid ${T.border}`, background: player.status === k ? `${v.color}18` : 'transparent', color: v.color, fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s ease' }}>{v.icon}</button>
           ))}
         </div>
-        <div style={{ width: 1, height: 18, background: T.border }} />
-        <div style={{ fontSize: 10, color: T.textMuted, display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ color: T.accent, fontSize: 8 }}>●</span><b>{peersArr.length + 1}</b> on</div>
-        <button onClick={handleLogout} style={{ padding: '4px 10px', borderRadius: 6, border: `1px solid ${T.border}`, background: 'transparent', color: T.textDim, fontSize: 9, cursor: 'pointer', fontFamily: "'JetBrains Mono',monospace" }} title="Sair">Sair</button>
+        <div style={{ width: 1, height: 20, background: T.border }} />
+        <div style={{ fontSize: 11, color: T.textMuted, display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: T.accent, animation: 'pulse 2s infinite' }} /><b style={{ color: T.text }}>{peersArr.length + 1}</b> online</div>
+        <button onClick={handleLogout} style={{ padding: '6px 12px', borderRadius: 8, border: `1px solid ${T.border}`, background: 'transparent', color: T.textMuted, fontSize: 10, cursor: 'pointer', fontFamily: "'Inter', sans-serif", fontWeight: 600, transition: 'all 0.15s ease' }} onMouseOver={e => e.target.style.borderColor = T.danger} onMouseOut={e => e.target.style.borderColor = T.border} title="Sair">Sair</button>
       </header>
 
       {/* MAIN */}
@@ -387,19 +404,21 @@ export default function App() {
             {/* Profile card */}
             {showProfile && (
               <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 300, background: T.surface, border: `1px solid ${T.border}`, borderRadius: 18, overflow: 'hidden', zIndex: 70, boxShadow: '0 20px 60px rgba(0,0,0,0.5)', animation: 'fadeIn 0.2s ease' }}>
-                {(() => { const [c1, c2] = PALETTES[(showProfile.avatar_idx || 0) % PALETTES.length]; const st = STATUS[showProfile.status] || STATUS.available; return (<>
-                  <div style={{ height: 60, background: `linear-gradient(135deg,${c1}22,${c2}22)`, position: 'relative' }}><button onClick={() => setShowProfile(null)} style={{ position: 'absolute', top: 10, right: 10, width: 26, height: 26, borderRadius: 8, border: 'none', background: 'rgba(0,0,0,0.3)', color: '#fff', fontSize: 12, cursor: 'pointer' }}>✕</button></div>
-                  <div style={{ padding: '0 20px 20px', marginTop: -28 }}>
-                    <div style={{ width: 56, height: 56, borderRadius: '50%', background: `linear-gradient(135deg,${c1},${c2})`, border: `3px solid ${T.surface}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, marginBottom: 10, overflow: 'hidden' }}>{showProfile.avatar_url ? <img src={showProfile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (showProfile.emoji || '😊')}</div>
-                    <div style={{ fontSize: 16, fontWeight: 700, color: T.text }}>{showProfile.display_name || 'Anon'}</div>
-                    <div style={{ fontSize: 12, color: T.textMuted, marginTop: 2 }}>{showProfile.role || 'Membro'} · {showProfile.team || 'Time'}</div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: st.color }} /><span style={{ fontSize: 11, color: st.color, fontWeight: 600 }}>{st.label}</span></div>
-                    <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-                      <button onClick={() => { if (canWalk(showProfile.x + 1, showProfile.y)) setPlayer(p => ({ ...p, x: showProfile.x + 1, y: showProfile.y })); setShowProfile(null); showNotif(`📍 Indo até ${(showProfile.display_name || '').split(' ')[0]}`) }} style={{ flex: 1, padding: '8px 0', borderRadius: 10, border: `1px solid ${T.borderLight}`, background: 'transparent', color: T.text, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: "'JetBrains Mono',monospace" }}>📍 Ir até</button>
-                      <button onClick={() => { setActiveChannel('proximity'); setRightPanel('chat'); setShowProfile(null) }} style={{ flex: 1, padding: '8px 0', borderRadius: 10, border: `1px solid ${T.borderLight}`, background: 'transparent', color: T.text, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: "'JetBrains Mono',monospace" }}>💬 Msg</button>
+                {(() => {
+                  const [c1, c2] = PALETTES[(showProfile.avatar_idx || 0) % PALETTES.length]; const st = STATUS[showProfile.status] || STATUS.available; return (<>
+                    <div style={{ height: 60, background: `linear-gradient(135deg,${c1}22,${c2}22)`, position: 'relative' }}><button onClick={() => setShowProfile(null)} style={{ position: 'absolute', top: 10, right: 10, width: 26, height: 26, borderRadius: 8, border: 'none', background: 'rgba(0,0,0,0.3)', color: '#fff', fontSize: 12, cursor: 'pointer' }}>✕</button></div>
+                    <div style={{ padding: '0 20px 20px', marginTop: -28 }}>
+                      <div style={{ width: 56, height: 56, borderRadius: '50%', background: `linear-gradient(135deg,${c1},${c2})`, border: `3px solid ${T.surface}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, marginBottom: 10, overflow: 'hidden' }}>{showProfile.avatar_url ? <img src={showProfile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (showProfile.emoji || '😊')}</div>
+                      <div style={{ fontSize: 16, fontWeight: 700, color: T.text }}>{showProfile.display_name || 'Anon'}</div>
+                      <div style={{ fontSize: 12, color: T.textMuted, marginTop: 2 }}>{showProfile.role || 'Membro'} · {showProfile.team || 'Time'}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: st.color }} /><span style={{ fontSize: 11, color: st.color, fontWeight: 600 }}>{st.label}</span></div>
+                      <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+                        <button onClick={() => { if (canWalk(showProfile.x + 1, showProfile.y)) setPlayer(p => ({ ...p, x: showProfile.x + 1, y: showProfile.y })); setShowProfile(null); showNotif(`📍 Indo até ${(showProfile.display_name || '').split(' ')[0]}`) }} style={{ flex: 1, padding: '8px 0', borderRadius: 10, border: `1px solid ${T.borderLight}`, background: 'transparent', color: T.text, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: "'JetBrains Mono',monospace" }}>📍 Ir até</button>
+                        <button onClick={() => { setActiveChannel('proximity'); setRightPanel('chat'); setShowProfile(null) }} style={{ flex: 1, padding: '8px 0', borderRadius: 10, border: `1px solid ${T.borderLight}`, background: 'transparent', color: T.text, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: "'JetBrains Mono',monospace" }}>💬 Msg</button>
+                      </div>
                     </div>
-                  </div>
-                </>)})()}
+                  </>)
+                })()}
               </div>
             )}
           </div>

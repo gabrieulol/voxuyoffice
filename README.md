@@ -1,6 +1,6 @@
-# 🟢 Stone HQ — Virtual Office (Live Multiplayer)
+# 🟣 Voxuy Office — Virtual Office (Live Multiplayer)
 
-Escritório virtual em tempo real para o time Stone.
+Escritório virtual em tempo real para equipes Voxuy.
 
 ## 🚀 Setup Rápido (3 passos)
 
@@ -16,7 +16,6 @@ Depois vá em **Authentication > Providers** e confirme que **Email** está habi
 
 ### 2. Instalar e Rodar Local
 ```bash
-cd stone-hq-live
 npm install
 npm run dev
 ```
@@ -27,7 +26,7 @@ Acesse http://localhost:5173
 npm install -g vercel
 vercel
 # Siga as instruções, aceite os defaults
-# Pronto! Você recebe uma URL pública tipo: https://stone-hq-abc123.vercel.app
+# Pronto! Você recebe uma URL pública tipo: https://voxuy-office.vercel.app
 ```
 
 Ou via GitHub:
@@ -70,8 +69,30 @@ src/
     └── OfficeTile.jsx     # Tile renderer
 ```
 
+## 🎨 Identidade Visual
+
+O projeto segue a identidade visual da **Voxuy**:
+
+| Elemento | Cor |
+|----------|-----|
+| **Azul Primário (Voxuy Blue)** | `#351FFF` |
+| **Azul Claro** | `#5a4aff` |
+| **Background** | `#0a0a12` |
+| **Surface** | `#12121a` |
+| **Texto** | `#f0f0f8` |
+| **Sucesso** | `#22c55e` |
+| **Perigo** | `#DC2626` |
+
+**Fontes:**
+- **Inter** — Fonte principal para UI
+- **JetBrains Mono** — Fonte monospace para código/labels
+
 ## 🔧 Customizações
 - **Mapa**: Edite `MAP` em `constants.js` (grid 26x18)
 - **Salas**: Edite `ROOMS` em `constants.js`
 - **Cores**: Edite `T` (theme) em `constants.js`
 - **Canais de chat**: Edite `channels` no `App.jsx`
+
+---
+
+Desenvolvido com 💜 para a equipe Voxuy

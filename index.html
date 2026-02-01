@@ -3,9 +3,20 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-  <title>Stone HQ — Virtual Office</title>
+  <title>Voxuy Office — Escritório Virtual</title>
+  <meta name="description" content="Escritório virtual em tempo real para equipes. Conecte-se, colabore e trabalhe junto com seu time."/>
+  <meta name="theme-color" content="#351FFF"/>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg"/>
-  <style>*{margin:0;padding:0;box-sizing:border-box}html,body,#root{width:100%;height:100%;overflow:hidden;background:#111114}</style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    html,body,#root{width:100%;height:100%;overflow:hidden;background:#0a0a12}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+    ::selection{background:rgba(53,31,255,0.3);color:#fff}
+  </style>
 </head>
 <body>
   <div id="root"></div>
