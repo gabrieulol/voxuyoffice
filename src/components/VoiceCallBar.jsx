@@ -118,9 +118,10 @@ export default function VoiceCallBar({
         padding: '8px 14px', display: 'flex', gap: 6, justifyContent: 'center',
         borderTop: expanded ? `1px solid ${T.border}` : 'none',
       }}>
-        <CallBtn active={!isMuted} danger={isMuted} onClick={onToggleMute} icon={isMuted ? '🔇' : '🎤'} label={isMuted ? 'Mutado' : 'Mic'} />
-        <CallBtn active={!isCamOff} onClick={onToggleCamera} icon={isCamOff ? '📷' : '📹'} label={isCamOff ? 'Cam off' : 'Cam'} />
-        <CallBtn danger onClick={onLeaveCall} icon="📞" label="Sair" />
+        <CallBtn active={!isMuted} danger={isMuted} onClick={onToggleMute} icon={isMuted ? '🔇' : '🎙'} label={isMuted ? 'Mutado' : 'Mic'} />
+        <CallBtn active={!isCamOff} onClick={onToggleCamera} icon={isCamOff ? '📵' : '📹'} label={isCamOff ? 'Cam off' : 'Cam'} />
+        <CallBtn active={isScreenSharing} onClick={onToggleScreenShare} icon="💻" label={isScreenSharing ? 'Parando' : 'Tela'} />
+        <CallBtn danger onClick={onLeaveCall} icon="❌" label="Sair" />
       </div>
     </div>
   )
@@ -250,7 +251,7 @@ function ScreenShareTile({ stream, label }) {
           width: '100%', height: '100%', display: 'flex', flexDirection: 'column',
           alignItems: 'center', justifyContent: 'center', color: T.textDim,
         }}>
-          <span style={{ fontSize: 32, marginBottom: 8 }}>🖥️</span>
+          <span style={{ fontSize: 32, marginBottom: 8 }}>💻</span>
           <span style={{ fontSize: 11, fontFamily: "'JetBrains Mono',monospace" }}>Aguardando tela...</span>
         </div>
       )}
@@ -259,7 +260,7 @@ function ScreenShareTile({ stream, label }) {
         padding: '6px 10px', background: 'linear-gradient(transparent, rgba(0,0,0,0.9))',
         display: 'flex', alignItems: 'center', gap: 6,
       }}>
-        <span style={{ fontSize: 12 }}>🖥️</span>
+        <span style={{ fontSize: 12 }}>💻</span>
         <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', fontFamily: "'JetBrains Mono',monospace" }}>{label}</span>
       </div>
     </div>
