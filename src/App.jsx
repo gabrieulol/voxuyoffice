@@ -5,6 +5,7 @@ import { TILE, MAP_COLS, MAP_ROWS, PROXIMITY_RANGE, VIDEO_RANGE, T, STATUS, PALE
 import AuthScreen from './components/AuthScreen'
 import OfficeTile from './components/OfficeTile'
 import VoiceCallBar from './components/VoiceCallBar'
+import DeviceSettings from './components/DeviceSettings'
 import { useVoiceCall } from './lib/useVoiceCall'
 
 // ═══════════ MAP AVATAR (SVG) ═══════════
@@ -196,6 +197,7 @@ export default function App() {
   const [showProfile, setShowProfile] = useState(null)
   const [showReactions, setShowReactions] = useState(false)
   const [showAvatarEditor, setShowAvatarEditor] = useState(false)
+  const [showDeviceSettings, setShowDeviceSettings] = useState(false)
   const [activeChannel, setActiveChannel] = useState('geral')
   const [notification, setNotification] = useState(null)
   const [callError, setCallError] = useState(null)
@@ -252,9 +254,9 @@ export default function App() {
   // ─── VOICE CALLS ───
   const {
     callState, callPeers, isMuted: voiceMuted, isCamOff, speakingUsers,
-    incomingCall, remoteStreams, localStream,
+    incomingCall, remoteStreams, localStream, selectedDevices,
     joinCall, callPerson, acceptCall, declineCall,
-    leaveCall, toggleMute: voiceToggleMute, toggleCamera, callRoom,
+    leaveCall, toggleMute: voiceToggleMute, toggleCamera, changeDevices, callRoom,
   } = useVoiceCall(user?.id)
 
   const nearbyPeople = peersArr.filter(c => player && dist(player, c) <= PROXIMITY_RANGE)
@@ -464,9 +466,8 @@ export default function App() {
               ) : (
                 <button onClick={handleStartCall} disabled={callState === 'joining'} style={{ width: 38, height: 38, borderRadius: 10, border: `1px solid ${T.accent}44`, background: `${T.accent}15`, color: T.text, fontSize: 16, cursor: callState === 'joining' ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: callState === 'joining' ? 0.5 : 1 }} title={currentRoom ? `Entrar em chamada: ${currentRoom.label}` : 'Entre em uma sala para ligar'}>{callState === 'joining' ? '⏳' : '🎧'}</button>
               )}
-              {[
-                { i: '😊', a: () => setShowReactions(p => !p), on: false, c: T.textMuted },
-              ].map((b, i) => <button key={i} onClick={b.a} style={{ width: 38, height: 38, borderRadius: 10, border: `1px solid ${b.on ? b.c + '44' : T.border}`, background: b.on ? `${b.c}15` : 'transparent', color: T.text, fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{b.i}</button>)}
+              <button onClick={() => setShowReactions(p => !p)} style={{ width: 38, height: 38, borderRadius: 10, border: `1px solid ${T.border}`, background: 'transparent', color: T.text, fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Reações">😊</button>
+              <button onClick={() => setShowDeviceSettings(true)} style={{ width: 38, height: 38, borderRadius: 10, border: `1px solid ${T.border}`, background: 'transparent', color: T.text, fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Configurações de dispositivo">⚙️</button>
             </div>
 
             {showReactions && (
@@ -541,6 +542,15 @@ export default function App() {
       )}
 
       {showAvatarEditor && <AvatarEditor currentPhoto={player.avatar_url} currentEmoji={player.emoji} onSave={handleAvatarSave} onClose={() => setShowAvatarEditor(false)} />}
+
+      <DeviceSettings
+        isOpen={showDeviceSettings}
+        onClose={() => setShowDeviceSettings(false)}
+        onDeviceChange={changeDevices}
+        currentAudioInput={selectedDevices.audioInput}
+        currentAudioOutput={selectedDevices.audioOutput}
+        currentVideoInput={selectedDevices.videoInput}
+      />
     </div>
   )
 }

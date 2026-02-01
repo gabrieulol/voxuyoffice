@@ -88,6 +88,13 @@ export function useVoiceCall(userId) {
   const [remoteStreams, setRemoteStreams] = useState({}) // { peerId: MediaStream }
   const [localStream, setLocalStream] = useState(null)  // exposed for local video preview
 
+  // Device selection
+  const [selectedDevices, setSelectedDevices] = useState({
+    audioInput: '',
+    audioOutput: '',
+    videoInput: '',
+  })
+
   const localStreamRef = useRef(null)
   const peersRef = useRef({})
   const remoteAudioRef = useRef({})
@@ -291,12 +298,23 @@ export function useVoiceCall(userId) {
   }, [userId, handleSignal])
 
   // ─── ACQUIRE MEDIA (mic always, camera optional) ───
-  const acquireMedia = useCallback(async (withVideo = false) => {
+  const acquireMedia = useCallback(async (withVideo = false, devices = null) => {
+    const devs = devices || selectedDevices
     const constraints = {
-      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+        ...(devs.audioInput ? { deviceId: { exact: devs.audioInput } } : {}),
+      },
     }
     if (withVideo) {
-      constraints.video = { width: { ideal: 320 }, height: { ideal: 240 }, frameRate: { ideal: 15 } }
+      constraints.video = {
+        width: { ideal: 640 },
+        height: { ideal: 480 },
+        frameRate: { ideal: 24 },
+        ...(devs.videoInput ? { deviceId: { exact: devs.videoInput } } : {}),
+      }
     }
     const stream = await navigator.mediaDevices.getUserMedia(constraints)
     localStreamRef.current = stream
@@ -304,7 +322,46 @@ export function useVoiceCall(userId) {
     startSpeakingDetection(stream, userId)
     isCamOffRef.current = !withVideo
     setIsCamOff(!withVideo)
-  }, [userId, startSpeakingDetection])
+  }, [userId, startSpeakingDetection, selectedDevices])
+
+  // ─── CHANGE DEVICES DURING CALL ───
+  const changeDevices = useCallback(async (newDevices) => {
+    setSelectedDevices(newDevices)
+
+    // If in a call, replace tracks with new devices
+    if (activeRef.current && localStreamRef.current) {
+      // Stop old tracks
+      localStreamRef.current.getTracks().forEach(t => t.stop())
+
+      // Get new stream with selected devices
+      const hasVideo = !isCamOffRef.current
+      await acquireMedia(hasVideo, newDevices)
+
+      // Replace tracks in all peer connections
+      const newStream = localStreamRef.current
+      Object.values(peersRef.current).forEach(pc => {
+        const senders = pc.getSenders()
+        senders.forEach(sender => {
+          if (sender.track?.kind === 'audio') {
+            const newAudioTrack = newStream.getAudioTracks()[0]
+            if (newAudioTrack) sender.replaceTrack(newAudioTrack)
+          } else if (sender.track?.kind === 'video') {
+            const newVideoTrack = newStream.getVideoTracks()[0]
+            if (newVideoTrack) sender.replaceTrack(newVideoTrack)
+          }
+        })
+      })
+    }
+
+    // Set audio output on remote audio elements
+    if (newDevices.audioOutput) {
+      Object.values(remoteAudioRef.current).forEach(el => {
+        if (el.setSinkId) {
+          el.setSinkId(newDevices.audioOutput).catch(() => { })
+        }
+      })
+    }
+  }, [acquireMedia])
 
   // ─── JOIN ROOM CALL ───
   const joinCall = useCallback(async (roomId, existingPeerIds = []) => {
@@ -464,8 +521,8 @@ export function useVoiceCall(userId) {
 
   return {
     callState, callPeers, isMuted, isCamOff, speakingUsers, incomingCall,
-    remoteStreams, localStream,
+    remoteStreams, localStream, selectedDevices,
     joinCall, callPerson, acceptCall, declineCall, leaveCall,
-    toggleMute, toggleCamera, callRoom: callRoomRef.current,
+    toggleMute, toggleCamera, changeDevices, callRoom: callRoomRef.current,
   }
 }
