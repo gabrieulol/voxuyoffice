@@ -8,7 +8,7 @@ import VoiceCallBar from './components/VoiceCallBar'
 import { useVoiceCall } from './lib/useVoiceCall'
 
 // ═══════════ MAP AVATAR (SVG) ═══════════
-function MapAvatar({ person, isPlayer, isNearby, isVideo, isSpeaking, onClick, reaction }) {
+function MapAvatar({ person, isPlayer, isNearby, isVideo, isSpeaking, isInCall, onClick, reaction }) {
   const px = person.x * TILE + TILE / 2, py = person.y * TILE + TILE / 2
   const [c1, c2] = PALETTES[(person.avatar_idx || 0) % PALETTES.length]
   const st = STATUS[person.status] || STATUS.available
@@ -20,7 +20,7 @@ function MapAvatar({ person, isPlayer, isNearby, isVideo, isSpeaking, onClick, r
     <g onClick={onClick} style={{ cursor: onClick ? 'pointer' : 'default' }}>
       {isVideo && !isPlayer && <circle cx={px} cy={py} r={r + 11} fill="none" stroke={T.accent} strokeWidth={1.5} strokeDasharray="3 3" opacity={0.3}><animateTransform attributeName="transform" type="rotate" values={`0 ${px} ${py};360 ${px} ${py}`} dur="8s" repeatCount="indefinite" /></circle>}
       {isNearby && !isPlayer && <circle cx={px} cy={py} r={r + 7} fill={T.accent} opacity={0.05}><animate attributeName="opacity" values="0.05;0.02;0.05" dur="3s" repeatCount="indefinite" /></circle>}
-      {isSpeaking && <circle cx={px} cy={py} r={r + 9} fill="none" stroke={T.accent} strokeWidth={1.5} opacity={0.5}><animate attributeName="r" values={`${r + 9};${r + 15};${r + 9}`} dur="0.8s" repeatCount="indefinite" /><animate attributeName="opacity" values="0.5;0;0.5" dur="0.8s" repeatCount="indefinite" /></circle>}
+      {isSpeaking && <circle cx={px} cy={py} r={r + 9} fill="none" stroke={T.accent} strokeWidth={2} opacity={0.6}><animate attributeName="r" values={`${r + 9};${r + 16};${r + 9}`} dur="0.7s" repeatCount="indefinite" /><animate attributeName="opacity" values="0.6;0.1;0.6" dur="0.7s" repeatCount="indefinite" /></circle>}
       <ellipse cx={px} cy={py + r + 3} rx={r * 0.65} ry={3} fill="rgba(0,0,0,0.5)" />
       <defs>
         <clipPath id={cid}><circle cx={px} cy={py} r={r} /></clipPath>
@@ -33,6 +33,7 @@ function MapAvatar({ person, isPlayer, isNearby, isVideo, isSpeaking, onClick, r
         <text x={px} y={py + 5} textAnchor="middle" fontSize={r * 1.1} style={{ pointerEvents: 'none' }}>{person.emoji || '😊'}</text>
       )}
       <circle cx={px + r * 0.65} cy={py - r * 0.65} r={4.5} fill={st.color} stroke={T.bg} strokeWidth={2.5} />
+      {isInCall && <g><circle cx={px - r * 0.7} cy={py + r * 0.5} r={6} fill="rgba(0,0,0,0.9)" stroke={T.accent} strokeWidth={1.5} /><text x={px - r * 0.7} y={py + r * 0.5 + 3.5} textAnchor="middle" fontSize={7}>🎧</text></g>}
       {reaction && <g><rect x={px + 8} y={py - r - 20} width={24} height={24} rx={12} fill="rgba(0,0,0,0.8)" stroke="rgba(255,255,255,0.1)" strokeWidth={1} /><text x={px + 20} y={py - r - 5} textAnchor="middle" fontSize={14}>{reaction}</text></g>}
       <foreignObject x={px - 45} y={py - r - 17} width={90} height={14}>
         <div style={{ textAlign: 'center', fontSize: 9, fontWeight: 700, fontFamily: "'JetBrains Mono',monospace", color: isPlayer ? T.accent : T.textMuted, textShadow: `0 1px 5px ${T.bg},0 0 10px ${T.bg}`, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', letterSpacing: '0.03em' }}>
@@ -196,9 +197,8 @@ export default function App() {
   const [showReactions, setShowReactions] = useState(false)
   const [showAvatarEditor, setShowAvatarEditor] = useState(false)
   const [activeChannel, setActiveChannel] = useState('geral')
-  const [micOn, setMicOn] = useState(true)
-  const [camOn, setCamOn] = useState(true)
   const [notification, setNotification] = useState(null)
+  const [callError, setCallError] = useState(null)
   const mapRef = useRef(null)
   const notifRef = useRef(null)
 
@@ -244,8 +244,53 @@ export default function App() {
   // Convert peers map to array for rendering
   const peersArr = Object.entries(peers).map(([id, p]) => ({ id, ...p, x: Number(p.x), y: Number(p.y) }))
 
+  // ─── VOICE CALLS ───
+  const {
+    callState, callPeers, isMuted: voiceMuted, isCamOff, speakingUsers,
+    incomingCall, remoteStreams, localStream,
+    joinCall, callPerson, acceptCall, declineCall,
+    leaveCall, toggleMute: voiceToggleMute, toggleCamera, callRoom,
+  } = useVoiceCall(user?.id)
+
   const nearbyPeople = peersArr.filter(c => player && dist(player, c) <= PROXIMITY_RANGE)
   const currentRoom = player ? getRoom(player.x, player.y) : null
+
+  // Helper: start a call in the current room
+  const handleStartCall = useCallback(async () => {
+    if (!currentRoom || !player) return
+    try {
+      setCallError(null)
+      const peerIdsInRoom = peersArr
+        .filter(p => {
+          const room = getRoom(p.x, p.y)
+          return room?.id === currentRoom.id
+        })
+        .map(p => p.id)
+      await joinCall(currentRoom.id, peerIdsInRoom)
+      showNotif(`🔊 Entrou na chamada: ${currentRoom.label}`)
+    } catch (e) {
+      setCallError('Não foi possível acessar o microfone. Verifique as permissões do navegador.')
+      showNotif('❌ Erro ao iniciar chamada')
+    }
+  }, [currentRoom, player, peersArr, joinCall])
+
+  const handleLeaveCall = useCallback(() => {
+    leaveCall()
+    showNotif('📞 Saiu da chamada')
+  }, [leaveCall])
+
+  const handleCallPerson = useCallback(async (person) => {
+    if (!person || callState === 'active') return
+    try {
+      setCallError(null)
+      await callPerson(person.id, player?.display_name)
+      showNotif(`📞 Ligando para ${(person.display_name || 'Anon').split(' ')[0]}...`)
+    } catch (e) {
+      setCallError('Não foi possível acessar o microfone.')
+      showNotif('❌ Erro ao ligar')
+    }
+  }, [callState, callPerson, player?.display_name])
+
   const channels = [
     { id: 'geral', label: 'Geral', icon: '#' },
     { id: 'proximity', label: 'Próximos', icon: '●' },
@@ -376,19 +421,45 @@ export default function App() {
 
             <svg style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} width={mapW} height={mapH}>
               <rect x={(player.x - PROXIMITY_RANGE) * TILE} y={(player.y - PROXIMITY_RANGE) * TILE} width={(PROXIMITY_RANGE * 2 + 1) * TILE} height={(PROXIMITY_RANGE * 2 + 1) * TILE} fill={T.accentDim} stroke={T.accent} strokeWidth={0.5} strokeDasharray="6 4" rx={6} opacity={0.25} />
-              {peersArr.map(c => <MapAvatar key={c.id} person={c} isPlayer={false} isNearby={dist(player, c) <= PROXIMITY_RANGE} isVideo={dist(player, c) <= VIDEO_RANGE} isSpeaking={false} onClick={() => setShowProfile(c)} reaction={reactions[c.id]} />)}
-              <MapAvatar person={player} isPlayer={true} isNearby={false} isVideo={false} isSpeaking={false} reaction={reactions[user.id]} />
+              {peersArr.map(c => <MapAvatar key={c.id} person={c} isPlayer={false} isNearby={dist(player, c) <= PROXIMITY_RANGE} isVideo={dist(player, c) <= VIDEO_RANGE} isSpeaking={speakingUsers.has(c.id)} isInCall={!!callPeers[c.id]} onClick={() => setShowProfile(c)} reaction={reactions[c.id]} />)}
+              <MapAvatar person={player} isPlayer={true} isNearby={false} isVideo={false} isSpeaking={speakingUsers.has(user.id)} isInCall={callState === 'active'} reaction={reactions[user.id]} />
             </svg>
+
+            {/* Voice Call Bar */}
+            <VoiceCallBar
+              callState={callState}
+              callPeers={callPeers}
+              callRoom={callRoom}
+              isMuted={voiceMuted}
+              isCamOff={isCamOff}
+              onToggleMute={voiceToggleMute}
+              onToggleCamera={toggleCamera}
+              onLeaveCall={handleLeaveCall}
+              peersMap={peers}
+              player={player}
+              speakingUsers={speakingUsers}
+              remoteStreams={remoteStreams}
+              localStream={localStream}
+            />
+
+            {callError && <div style={{ position: 'absolute', top: 48, left: '50%', transform: 'translateX(-50%)', background: `${T.danger}22`, color: T.danger, padding: '7px 16px', borderRadius: 8, fontSize: 10, fontWeight: 600, backdropFilter: 'blur(8px)', zIndex: 55, animation: 'fadeIn 0.2s ease', whiteSpace: 'nowrap', border: `1px solid ${T.danger}33`, fontFamily: "'JetBrains Mono',monospace" }}>{callError}<button onClick={() => setCallError(null)} style={{ marginLeft: 10, background: 'none', border: 'none', color: T.danger, cursor: 'pointer', fontSize: 10 }}>✕</button></div>}
 
             {notification && <div style={{ position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.9)', color: T.accent, padding: '7px 16px', borderRadius: 8, fontSize: 11, fontWeight: 600, backdropFilter: 'blur(8px)', zIndex: 50, animation: 'fadeIn 0.2s ease', whiteSpace: 'nowrap', border: `1px solid ${T.accent}33` }}>{notification}</div>}
             <Minimap player={player} peersArr={peersArr} />
 
             {/* Toolbar */}
             <div style={{ position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 6, background: 'rgba(0,0,0,0.85)', borderRadius: 14, padding: '6px 10px', backdropFilter: 'blur(8px)', border: `1px solid ${T.border}`, zIndex: 40 }}>
+              {callState === 'active' ? (
+                <>
+                  <button onClick={voiceToggleMute} style={{ width: 38, height: 38, borderRadius: 10, border: `1px solid ${voiceMuted ? T.danger + '44' : T.accent + '44'}`, background: voiceMuted ? `${T.danger}15` : `${T.accent}15`, color: T.text, fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title={voiceMuted ? 'Ativar mic' : 'Mutar mic'}>{voiceMuted ? '🔇' : '🎤'}</button>
+                  <button onClick={toggleCamera} style={{ width: 38, height: 38, borderRadius: 10, border: `1px solid ${isCamOff ? T.border : T.accent + '44'}`, background: isCamOff ? 'transparent' : `${T.accent}15`, color: T.text, fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title={isCamOff ? 'Ligar câmera' : 'Desligar câmera'}>{isCamOff ? '📷' : '📹'}</button>
+                  <button onClick={handleLeaveCall} style={{ width: 38, height: 38, borderRadius: 10, border: `1px solid ${T.danger}44`, background: `${T.danger}20`, color: T.text, fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Sair da chamada">📞</button>
+                  <div style={{ width: 1, height: 24, background: T.border, alignSelf: 'center' }} />
+                </>
+              ) : (
+                <button onClick={handleStartCall} disabled={callState === 'joining'} style={{ width: 38, height: 38, borderRadius: 10, border: `1px solid ${T.accent}44`, background: `${T.accent}15`, color: T.text, fontSize: 16, cursor: callState === 'joining' ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: callState === 'joining' ? 0.5 : 1 }} title={currentRoom ? `Entrar em chamada: ${currentRoom.label}` : 'Entre em uma sala para ligar'}>{callState === 'joining' ? '⏳' : '🎧'}</button>
+              )}
               {[
-                { i: micOn ? '🎤' : '🔇', a: () => setMicOn(p => !p), on: micOn, c: micOn ? T.accent : T.danger },
-                { i: camOn ? '📷' : '📷', a: () => setCamOn(p => !p), on: camOn, c: camOn ? T.accent : T.textDim },
-                { i: '🖥', a: () => showNotif('🖥 Screen share (em breve)'), on: false, c: T.textMuted },
                 { i: '😊', a: () => setShowReactions(p => !p), on: false, c: T.textMuted },
               ].map((b, i) => <button key={i} onClick={b.a} style={{ width: 38, height: 38, borderRadius: 10, border: `1px solid ${b.on ? b.c + '44' : T.border}`, background: b.on ? `${b.c}15` : 'transparent', color: T.text, fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{b.i}</button>)}
             </div>
@@ -415,6 +486,7 @@ export default function App() {
                       <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
                         <button onClick={() => { if (canWalk(showProfile.x + 1, showProfile.y)) setPlayer(p => ({ ...p, x: showProfile.x + 1, y: showProfile.y })); setShowProfile(null); showNotif(`📍 Indo até ${(showProfile.display_name || '').split(' ')[0]}`) }} style={{ flex: 1, padding: '8px 0', borderRadius: 10, border: `1px solid ${T.borderLight}`, background: 'transparent', color: T.text, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: "'JetBrains Mono',monospace" }}>📍 Ir até</button>
                         <button onClick={() => { setActiveChannel('proximity'); setRightPanel('chat'); setShowProfile(null) }} style={{ flex: 1, padding: '8px 0', borderRadius: 10, border: `1px solid ${T.borderLight}`, background: 'transparent', color: T.text, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: "'JetBrains Mono',monospace" }}>💬 Msg</button>
+                        <button onClick={() => { handleCallPerson(showProfile); setShowProfile(null) }} disabled={callState === 'active'} style={{ flex: 1, padding: '8px 0', borderRadius: 10, border: `1px solid ${callState === 'active' ? T.textDim + '33' : T.accent + '44'}`, background: callState === 'active' ? 'transparent' : `${T.accent}11`, color: callState === 'active' ? T.textDim : T.accent, fontSize: 11, fontWeight: 700, cursor: callState === 'active' ? 'default' : 'pointer', fontFamily: "'JetBrains Mono',monospace", opacity: callState === 'active' ? 0.5 : 1 }}>📞 Ligar</button>
                       </div>
                     </div>
                   </>)
@@ -440,6 +512,21 @@ export default function App() {
           </div>
         </div>
       </div>
+
+      {/* INCOMING CALL MODAL */}
+      {incomingCall && callState === 'ringing' && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'fadeIn 0.2s ease' }}>
+          <div style={{ width: 320, background: T.surface, borderRadius: 20, border: `1px solid ${T.accent}44`, overflow: 'hidden', boxShadow: `0 20px 60px rgba(0,0,0,0.6), 0 0 40px ${T.accent}11`, textAlign: 'center', padding: '32px 24px 24px' }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>📞</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: T.text, fontFamily: "'JetBrains Mono',monospace" }}>{incomingCall.fromName}</div>
+            <div style={{ fontSize: 12, color: T.textMuted, fontFamily: "'JetBrains Mono',monospace", marginTop: 4 }}>está te ligando...</div>
+            <div style={{ display: 'flex', gap: 12, marginTop: 24, justifyContent: 'center' }}>
+              <button onClick={declineCall} style={{ padding: '12px 28px', borderRadius: 14, border: 'none', background: T.danger, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: "'JetBrains Mono',monospace" }}>✕ Recusar</button>
+              <button onClick={acceptCall} style={{ padding: '12px 28px', borderRadius: 14, border: 'none', background: T.accent, color: T.bg, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: "'JetBrains Mono',monospace" }}>✓ Atender</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showAvatarEditor && <AvatarEditor currentPhoto={player.avatar_url} currentEmoji={player.emoji} onSave={handleAvatarSave} onClose={() => setShowAvatarEditor(false)} />}
     </div>
