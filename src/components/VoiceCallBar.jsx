@@ -6,10 +6,10 @@ import { T, PALETTES } from '../lib/constants'
 // ═══════════════════════════════════════════
 
 export default function VoiceCallBar({
-  callState, callPeers, callRoom, isMuted, isCamOff,
-  onToggleMute, onToggleCamera, onLeaveCall,
+  callState, callPeers, callRoom, isMuted, isCamOff, isScreenSharing,
+  onToggleMute, onToggleCamera, onToggleScreenShare, onLeaveCall,
   peersMap, player, speakingUsers,
-  remoteStreams, localStream,
+  remoteStreams, localStream, screenStream,
 }) {
   const [expanded, setExpanded] = useState(true)
   if (callState === 'idle') return null
@@ -19,6 +19,7 @@ export default function VoiceCallBar({
   const font = "'JetBrains Mono',monospace"
   const isSelfSpeaking = speakingUsers.has(player?.id)
   const anyoneHasVideo = !isCamOff || connectedPeers.some(([_, p]) => !p.camOff)
+  const hasScreenShare = isScreenSharing || connectedPeers.some(([_, p]) => p.screenSharing)
 
   return (
     <div style={{
@@ -27,7 +28,7 @@ export default function VoiceCallBar({
       borderRadius: 16, border: `1px solid ${T.accent}33`,
       boxShadow: `0 8px 40px rgba(0,0,0,0.6), 0 0 20px ${T.accent}11`,
       zIndex: 60, animation: 'fadeIn 0.25s ease',
-      minWidth: 220, maxWidth: anyoneHasVideo && expanded ? 600 : 500,
+      minWidth: 220, maxWidth: hasScreenShare && expanded ? 800 : (anyoneHasVideo && expanded ? 600 : 500),
       transition: 'max-width 0.3s ease',
     }}>
       {/* Header */}
@@ -53,7 +54,17 @@ export default function VoiceCallBar({
       {/* Video Grid + Avatar bubbles */}
       {expanded && callState === 'active' && (
         <div style={{ padding: '8px 10px' }}>
-          {anyoneHasVideo ? (
+          {/* Screen Share Display */}
+          {(isScreenSharing || hasScreenShare) && (
+            <div style={{ marginBottom: 8 }}>
+              <ScreenShareTile
+                stream={isScreenSharing ? screenStream : null}
+                label={isScreenSharing ? 'Sua tela' : 'Tela compartilhada'}
+              />
+            </div>
+          )}
+
+          {anyoneHasVideo || hasScreenShare ? (
             <div style={{
               display: 'grid',
               gridTemplateColumns: totalInCall <= 2 ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)',
@@ -206,6 +217,51 @@ function AvatarBubble({ name, emoji, avatarUrl, avatarIdx, speaking, muted }) {
         {muted && <div style={{ position: 'absolute', bottom: -2, right: -2, width: 14, height: 14, borderRadius: '50%', background: T.danger, border: `2px solid ${T.bg}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 7 }}>🔇</div>}
       </div>
       <span style={{ fontSize: 8, fontWeight: 700, color: speaking ? T.accent : T.textDim, fontFamily: "'JetBrains Mono',monospace", maxWidth: 56, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
+    </div>
+  )
+}
+
+// ─── Screen Share Tile ───
+function ScreenShareTile({ stream, label }) {
+  const videoRef = useRef(null)
+
+  useEffect(() => {
+    if (videoRef.current && stream) {
+      videoRef.current.srcObject = stream
+    }
+  }, [stream])
+
+  return (
+    <div style={{
+      position: 'relative', borderRadius: 12, overflow: 'hidden',
+      background: '#111', width: '100%', aspectRatio: '16/9',
+      border: `2px solid ${T.accent}44`,
+    }}>
+      {stream ? (
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#000' }}
+        />
+      ) : (
+        <div style={{
+          width: '100%', height: '100%', display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center', color: T.textDim,
+        }}>
+          <span style={{ fontSize: 32, marginBottom: 8 }}>🖥️</span>
+          <span style={{ fontSize: 11, fontFamily: "'JetBrains Mono',monospace" }}>Aguardando tela...</span>
+        </div>
+      )}
+      <div style={{
+        position: 'absolute', bottom: 0, left: 0, right: 0,
+        padding: '6px 10px', background: 'linear-gradient(transparent, rgba(0,0,0,0.9))',
+        display: 'flex', alignItems: 'center', gap: 6,
+      }}>
+        <span style={{ fontSize: 12 }}>🖥️</span>
+        <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', fontFamily: "'JetBrains Mono',monospace" }}>{label}</span>
+      </div>
     </div>
   )
 }

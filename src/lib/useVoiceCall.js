@@ -83,10 +83,12 @@ export function useVoiceCall(userId) {
   const [callPeers, setCallPeers] = useState({})       // { peerId: { connected, speaking, muted, camOff } }
   const [isMuted, setIsMuted] = useState(false)
   const [isCamOff, setIsCamOff] = useState(false)        // camera ON by default
+  const [isScreenSharing, setIsScreenSharing] = useState(false)
   const [speakingUsers, setSpeakingUsers] = useState(new Set())
   const [incomingCall, setIncomingCall] = useState(null)
   const [remoteStreams, setRemoteStreams] = useState({}) // { peerId: MediaStream }
   const [localStream, setLocalStream] = useState(null)  // exposed for local video preview
+  const [screenStream, setScreenStream] = useState(null) // screen share stream
 
   // Device selection
   const [selectedDevices, setSelectedDevices] = useState({
@@ -96,6 +98,7 @@ export function useVoiceCall(userId) {
   })
 
   const localStreamRef = useRef(null)
+  const screenStreamRef = useRef(null)
   const peersRef = useRef({})
   const remoteAudioRef = useRef({})
   const analyserRef = useRef({})
@@ -105,6 +108,7 @@ export function useVoiceCall(userId) {
   const activeRef = useRef(false)
   const userIdRef = useRef(userId)
   const isCamOffRef = useRef(false)
+  const isScreenSharingRef = useRef(false)
   userIdRef.current = userId
 
   // ─── SPEAKING DETECTION ───
@@ -513,16 +517,93 @@ export function useVoiceCall(userId) {
     }
   }, [userId, sendSignal])
 
+  // ─── TOGGLE SCREEN SHARE ───
+  const toggleScreenShare = useCallback(async () => {
+    if (!activeRef.current) return
+
+    if (!isScreenSharingRef.current) {
+      // Start screen sharing
+      try {
+        const stream = await navigator.mediaDevices.getDisplayMedia({
+          video: { cursor: 'always' },
+          audio: false,
+        })
+
+        screenStreamRef.current = stream
+        setScreenStream(stream)
+        isScreenSharingRef.current = true
+        setIsScreenSharing(true)
+
+        const screenTrack = stream.getVideoTracks()[0]
+
+        // Handle user stopping share via browser UI
+        screenTrack.onended = () => {
+          stopScreenShare()
+        }
+
+        // Add screen track to all peer connections
+        Object.entries(peersRef.current).forEach(([peerId, pc]) => {
+          pc.addTrack(screenTrack, stream)
+            // Renegotiate
+            ; (async () => {
+              makingOfferRef.current[peerId] = true
+              const offer = await pc.createOffer()
+              await pc.setLocalDescription(offer)
+              sendSignal({ from: userId, to: peerId, type: 'offer', sdp: pc.localDescription.toJSON(), room: callRoomRef.current })
+              makingOfferRef.current[peerId] = false
+            })()
+        })
+
+        sendSignal({ from: userId, to: '*', type: 'screen-state', sharing: true, room: callRoomRef.current })
+      } catch (e) {
+        console.warn('Screen share cancelled or failed:', e)
+      }
+    } else {
+      stopScreenShare()
+    }
+  }, [userId, sendSignal])
+
+  const stopScreenShare = useCallback(() => {
+    if (!screenStreamRef.current) return
+
+    const screenTrack = screenStreamRef.current.getVideoTracks()[0]
+
+    // Remove screen track from all peer connections
+    Object.entries(peersRef.current).forEach(([peerId, pc]) => {
+      const sender = pc.getSenders().find(s => s.track === screenTrack)
+      if (sender) {
+        pc.removeTrack(sender)
+          // Renegotiate
+          ; (async () => {
+            makingOfferRef.current[peerId] = true
+            const offer = await pc.createOffer()
+            await pc.setLocalDescription(offer)
+            sendSignal({ from: userId, to: peerId, type: 'offer', sdp: pc.localDescription.toJSON(), room: callRoomRef.current })
+            makingOfferRef.current[peerId] = false
+          })()
+      }
+    })
+
+    screenStreamRef.current.getTracks().forEach(t => t.stop())
+    screenStreamRef.current = null
+    setScreenStream(null)
+    isScreenSharingRef.current = false
+    setIsScreenSharing(false)
+
+    sendSignal({ from: userId, to: '*', type: 'screen-state', sharing: false, room: callRoomRef.current })
+  }, [userId, sendSignal])
+
   useEffect(() => () => {
     activeRef.current = false
     Object.values(peersRef.current).forEach(pc => pc?.close())
     if (localStreamRef.current) localStreamRef.current.getTracks().forEach(t => t.stop())
+    if (screenStreamRef.current) screenStreamRef.current.getTracks().forEach(t => t.stop())
   }, [])
 
   return {
-    callState, callPeers, isMuted, isCamOff, speakingUsers, incomingCall,
-    remoteStreams, localStream, selectedDevices,
+    callState, callPeers, isMuted, isCamOff, isScreenSharing, speakingUsers, incomingCall,
+    remoteStreams, localStream, screenStream, selectedDevices,
     joinCall, callPerson, acceptCall, declineCall, leaveCall,
-    toggleMute, toggleCamera, changeDevices, callRoom: callRoomRef.current,
+    toggleMute, toggleCamera, toggleScreenShare, changeDevices, callRoom: callRoomRef.current,
   }
 }

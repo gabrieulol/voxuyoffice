@@ -253,10 +253,10 @@ export default function App() {
 
   // ─── VOICE CALLS ───
   const {
-    callState, callPeers, isMuted: voiceMuted, isCamOff, speakingUsers,
-    incomingCall, remoteStreams, localStream, selectedDevices,
+    callState, callPeers, isMuted: voiceMuted, isCamOff, isScreenSharing, speakingUsers,
+    incomingCall, remoteStreams, localStream, screenStream, selectedDevices,
     joinCall, callPerson, acceptCall, declineCall,
-    leaveCall, toggleMute: voiceToggleMute, toggleCamera, changeDevices, callRoom,
+    leaveCall, toggleMute: voiceToggleMute, toggleCamera, toggleScreenShare, changeDevices, callRoom,
   } = useVoiceCall(user?.id)
 
   const nearbyPeople = peersArr.filter(c => player && dist(player, c) <= PROXIMITY_RANGE)
@@ -439,14 +439,17 @@ export default function App() {
               callRoom={callRoom}
               isMuted={voiceMuted}
               isCamOff={isCamOff}
+              isScreenSharing={isScreenSharing}
               onToggleMute={voiceToggleMute}
               onToggleCamera={toggleCamera}
+              onToggleScreenShare={toggleScreenShare}
               onLeaveCall={handleLeaveCall}
               peersMap={peers}
               player={player}
               speakingUsers={speakingUsers}
               remoteStreams={remoteStreams}
               localStream={localStream}
+              screenStream={screenStream}
             />
 
             {callError && <div style={{ position: 'absolute', top: 48, left: '50%', transform: 'translateX(-50%)', background: `${T.danger}22`, color: T.danger, padding: '7px 16px', borderRadius: 8, fontSize: 10, fontWeight: 600, backdropFilter: 'blur(8px)', zIndex: 55, animation: 'fadeIn 0.2s ease', whiteSpace: 'nowrap', border: `1px solid ${T.danger}33`, fontFamily: "'JetBrains Mono',monospace" }}>{callError}<button onClick={() => setCallError(null)} style={{ marginLeft: 10, background: 'none', border: 'none', color: T.danger, cursor: 'pointer', fontSize: 10 }}>✕</button></div>}
@@ -460,6 +463,7 @@ export default function App() {
                 <>
                   <button onClick={voiceToggleMute} style={{ width: 38, height: 38, borderRadius: 10, border: `1px solid ${voiceMuted ? T.danger + '44' : T.accent + '44'}`, background: voiceMuted ? `${T.danger}15` : `${T.accent}15`, color: T.text, fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title={voiceMuted ? 'Ativar mic' : 'Mutar mic'}>{voiceMuted ? '🔇' : '🎤'}</button>
                   <button onClick={toggleCamera} style={{ width: 38, height: 38, borderRadius: 10, border: `1px solid ${isCamOff ? T.border : T.accent + '44'}`, background: isCamOff ? 'transparent' : `${T.accent}15`, color: T.text, fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title={isCamOff ? 'Ligar câmera' : 'Desligar câmera'}>{isCamOff ? '📷' : '📹'}</button>
+                  <button onClick={toggleScreenShare} style={{ width: 38, height: 38, borderRadius: 10, border: `1px solid ${isScreenSharing ? T.accent + '44' : T.border}`, background: isScreenSharing ? `${T.accent}15` : 'transparent', color: T.text, fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title={isScreenSharing ? 'Parar compartilhamento' : 'Compartilhar tela'}>🖥️</button>
                   <button onClick={handleLeaveCall} style={{ width: 38, height: 38, borderRadius: 10, border: `1px solid ${T.danger}44`, background: `${T.danger}20`, color: T.text, fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Sair da chamada">📞</button>
                   <div style={{ width: 1, height: 24, background: T.border, alignSelf: 'center' }} />
                 </>
