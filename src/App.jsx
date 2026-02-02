@@ -419,7 +419,9 @@ export default function App() {
               }).map(p => p.id)
 
               await joinCall(`room-${newRoom.id}`, peopleInRoom, true) // autoJoin = true (camera off by default)
-              showNotif(`🔊 Conectado: ${newRoom.label}`)
+              // Show notification inline to avoid circular dependency
+              setNotification(`🔊 Conectado: ${newRoom.label}`)
+              setTimeout(() => setNotification(null), 3000)
             } catch (e) {
               console.warn('[AutoCall] Failed to auto-join:', e)
               // Don't show error for auto-join failures - user can manually join
@@ -430,7 +432,7 @@ export default function App() {
         return () => clearTimeout(timer)
       }
     }
-  }, [currentRoom?.id, player, user, callState, callRoom, leaveCall, joinCall, peersArr, showNotif])
+  }, [currentRoom?.id, player, user, callState, callRoom, leaveCall, joinCall, peersArr])
 
   // Helper: manually reconnect to room call (if auto-join failed or user left)
   const handleStartCall = useCallback(async () => {
