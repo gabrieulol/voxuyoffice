@@ -415,8 +415,11 @@ export default function App() {
     const prevRoom = previousRoomRef.current
     const newRoom = currentRoom
 
-    // Room changed
-    if (prevRoom?.id !== newRoom?.id) {
+    // Initial load: if already in a room, auto-join (prevRoom is null on first load)
+    const isInitialLoad = prevRoom === null && newRoom && newRoom.id !== 'hallway'
+
+    // Room changed or initial load
+    if (prevRoom?.id !== newRoom?.id || isInitialLoad) {
       // Update ref immediately
       previousRoomRef.current = newRoom
 
@@ -427,12 +430,13 @@ export default function App() {
       }
 
       // Entered a new room (not hallway) - auto-join call (only if not busy)
-      if (newRoom && newRoom.id !== 'hallway' && !isBusy) {
-        // Small delay to let the leave complete and avoid race conditions
+      if (newRoom && newRoom.id !== 'hallway' && !isBusy && callState === 'idle') {
+        // Small delay to let things settle
+        const delay = isInitialLoad ? 1000 : (prevRoom ? 600 : 200)
         const timer = setTimeout(async () => {
           // Check if we're still in the same room and not already in a call
           if (previousRoomRef.current?.id === newRoom.id && callState === 'idle') {
-            console.log('[AutoCall] Auto-joining room call:', newRoom.label)
+            console.log('[AutoCall] Auto-joining room call:', newRoom.label, isInitialLoad ? '(initial load)' : '')
             try {
               // Find other people in the same room
               const peopleInRoom = peersArr.filter(p => {
@@ -449,7 +453,7 @@ export default function App() {
               // Don't show error for auto-join failures - user can manually join
             }
           }
-        }, prevRoom ? 600 : 200)
+        }, delay)
 
         return () => clearTimeout(timer)
       }
