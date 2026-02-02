@@ -387,8 +387,12 @@ export default function App() {
 
   // ─── AUTO-JOIN ROOM CALLS ───
   // Automatically join/leave voice calls when entering/leaving rooms
+  // SKIP if user is in "busy" mode (do not disturb)
   useEffect(() => {
     if (!player || !user) return
+
+    // Don't auto-join if in busy/do-not-disturb mode
+    const isBusy = player.status === 'busy'
 
     const prevRoom = previousRoomRef.current
     const newRoom = currentRoom
@@ -404,8 +408,8 @@ export default function App() {
         leaveCall()
       }
 
-      // Entered a new room (not hallway) - auto-join call
-      if (newRoom && newRoom.id !== 'hallway') {
+      // Entered a new room (not hallway) - auto-join call (only if not busy)
+      if (newRoom && newRoom.id !== 'hallway' && !isBusy) {
         // Small delay to let the leave complete and avoid race conditions
         const timer = setTimeout(async () => {
           // Check if we're still in the same room and not already in a call
@@ -432,13 +436,13 @@ export default function App() {
         return () => clearTimeout(timer)
       }
     }
-  }, [currentRoom?.id, player, user, callState, callRoom, leaveCall, joinCall, peersArr])
+  }, [currentRoom?.id, player, user, callState, callRoom, leaveCall, joinCall, peersArr, player?.status])
 
   // Helper: manually reconnect to room call (if auto-join failed or user left)
   const handleStartCall = useCallback(async () => {
     if (!currentRoom || !player || currentRoom.id === 'hallway') return
     if (callState === 'active') return // Already in a call
-    
+
     try {
       setCallError(null)
       const peerIdsInRoom = peersArr
@@ -518,6 +522,26 @@ export default function App() {
     if (!player) return
     const h = e => {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || showProfile || showAvatarEditor) return
+
+      // Cmd/Ctrl + U = Toggle Busy/Do Not Disturb mode
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'u' || e.key === 'U')) {
+        e.preventDefault()
+        const newStatus = player.status === 'busy' ? 'available' : 'busy'
+        setPlayer(p => ({ ...p, status: newStatus }))
+        supabase.from('profiles').update({ status: newStatus }).eq('id', user.id)
+
+        if (newStatus === 'busy') {
+          showNotif('🔴 Modo Ocupado ativado - Não será conectado automaticamente às salas')
+          // Leave current call if active
+          if (callState === 'active') {
+            leaveCall()
+          }
+        } else {
+          showNotif('🟢 Modo Disponível - Conexão automática reativada')
+        }
+        return
+      }
+
       let nx = player.x, ny = player.y
       switch (e.key) {
         case 'ArrowUp': case 'w': case 'W': ny--; break
@@ -533,7 +557,7 @@ export default function App() {
     }
     window.addEventListener('keydown', h)
     return () => window.removeEventListener('keydown', h)
-  }, [player, showProfile, showAvatarEditor, nearbyPeople])
+  }, [player, showProfile, showAvatarEditor, nearbyPeople, callState, leaveCall, user?.id])
 
   const handleMapClick = e => {
     if (!player || !mapRef.current || showProfile) return
@@ -732,15 +756,46 @@ export default function App() {
                 </>
               ) : (
                 currentRoom && currentRoom.id !== 'hallway' ? (
-                  <button onClick={handleStartCall} disabled={callState === 'joining'} style={{ padding: '0 14px', height: 38, borderRadius: 10, border: `1px solid ${T.accent}44`, background: `${T.accent}15`, color: T.text, fontSize: 11, fontWeight: 700, cursor: callState === 'joining' ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: callState === 'joining' ? 0.5 : 1, fontFamily: "'JetBrains Mono',monospace" }} title="Reconectar ao áudio da sala">
-                    {callState === 'joining' ? '⏳' : '🎧'} {callState === 'joining' ? 'Conectando...' : 'Reconectar'}
-                  </button>
+                  player?.status === 'busy' ? (
+                    <div style={{ padding: '0 14px', height: 38, borderRadius: 10, border: `1px solid ${T.danger}44`, background: `${T.danger}15`, color: T.danger, fontSize: 10, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontFamily: "'JetBrains Mono',monospace" }}>
+                      🔴 Ocupado
+                    </div>
+                  ) : (
+                    <button onClick={handleStartCall} disabled={callState === 'joining'} style={{ padding: '0 14px', height: 38, borderRadius: 10, border: `1px solid ${T.accent}44`, background: `${T.accent}15`, color: T.text, fontSize: 11, fontWeight: 700, cursor: callState === 'joining' ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: callState === 'joining' ? 0.5 : 1, fontFamily: "'JetBrains Mono',monospace" }} title="Reconectar ao áudio da sala">
+                      {callState === 'joining' ? '⏳' : '🎧'} {callState === 'joining' ? 'Conectando...' : 'Reconectar'}
+                    </button>
+                  )
                 ) : (
                   <div style={{ padding: '0 14px', height: 38, borderRadius: 10, border: `1px solid ${T.border}`, background: 'transparent', color: T.textDim, fontSize: 10, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontFamily: "'JetBrains Mono',monospace" }}>
                     🚪 Entre em uma sala
                   </div>
                 )
               )}
+              {/* Do Not Disturb Toggle */}
+              <button
+                onClick={() => {
+                  const newStatus = player?.status === 'busy' ? 'available' : 'busy'
+                  setPlayer(p => ({ ...p, status: newStatus }))
+                  supabase.from('profiles').update({ status: newStatus }).eq('id', user.id)
+                  if (newStatus === 'busy') {
+                    showNotif('🔴 Modo Ocupado ativado')
+                    if (callState === 'active') leaveCall()
+                  } else {
+                    showNotif('🟢 Modo Disponível')
+                  }
+                }}
+                style={{
+                  width: 38, height: 38, borderRadius: 10,
+                  border: `1px solid ${player?.status === 'busy' ? T.danger + '44' : T.border}`,
+                  background: player?.status === 'busy' ? `${T.danger}15` : 'transparent',
+                  color: player?.status === 'busy' ? T.danger : T.text,
+                  fontSize: 14, fontWeight: 700, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }}
+                title={player?.status === 'busy' ? 'Desativar modo ocupado (⌘U)' : 'Ativar modo ocupado (⌘U)'}
+              >
+                {player?.status === 'busy' ? '🔴' : '🟢'}
+              </button>
               <button onClick={() => setShowReactions(p => !p)} style={{ width: 38, height: 38, borderRadius: 10, border: `1px solid ${T.border}`, background: 'transparent', color: T.text, fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Reações">😊</button>
               <button onClick={() => setShowDeviceSettings(true)} style={{ width: 38, height: 38, borderRadius: 10, border: `1px solid ${T.border}`, background: 'transparent', color: T.text, fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Configurações de dispositivo">⚙️</button>
             </div>
