@@ -328,22 +328,40 @@ export default function App() {
     const { data } = await supabase.from('profiles').select('*').eq('id', uid).single()
     if (data) {
       setProfile(data)
-      // Use saved position if available, otherwise spawn randomly
-      const hasPosition = typeof data.last_x === 'number' && typeof data.last_y === 'number'
-      const spawn = hasPosition
-        ? { x: data.last_x, y: data.last_y }
-        : SPAWN_POINTS[Math.floor(Math.random() * SPAWN_POINTS.length)]
 
-      setPlayer({
-        id: uid, x: spawn.x, y: spawn.y,
-        status: data.status || 'available',
-        display_name: data.display_name,
-        emoji: data.emoji || '😊',
-        avatar_url: data.avatar_url,
-        role: data.role || '',
-        team: data.team || '',
-        activity: data.activity || 'Online',
-        avatar_idx: uid.charCodeAt(0) % PALETTES.length,
+      // Only set player if not already set (avoid resetting position mid-session)
+      setPlayer(prev => {
+        if (prev && prev.id === uid) {
+          // Player already exists, just update profile data without changing position
+          return {
+            ...prev,
+            status: data.status || prev.status,
+            display_name: data.display_name || prev.display_name,
+            emoji: data.emoji || prev.emoji,
+            avatar_url: data.avatar_url,
+            role: data.role || prev.role,
+            team: data.team || prev.team,
+            activity: data.activity || prev.activity,
+          }
+        }
+
+        // New player - use saved position if available, otherwise spawn randomly
+        const hasPosition = typeof data.last_x === 'number' && typeof data.last_y === 'number'
+        const spawn = hasPosition
+          ? { x: data.last_x, y: data.last_y }
+          : SPAWN_POINTS[Math.floor(Math.random() * SPAWN_POINTS.length)]
+
+        return {
+          id: uid, x: spawn.x, y: spawn.y,
+          status: data.status || 'available',
+          display_name: data.display_name,
+          emoji: data.emoji || '😊',
+          avatar_url: data.avatar_url,
+          role: data.role || '',
+          team: data.team || '',
+          activity: data.activity || 'Online',
+          avatar_idx: uid.charCodeAt(0) % PALETTES.length,
+        }
       })
 
       // Request notification permission for incoming calls

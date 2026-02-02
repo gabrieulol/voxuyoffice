@@ -189,10 +189,38 @@ export function useVoiceCall(userId) {
       const stream = event.streams[0]
       if (!stream) return
 
-      // Check if this is audio or video
+      const track = event.track
       const hasVideo = stream.getVideoTracks().length > 0
       const hasAudio = stream.getAudioTracks().length > 0
 
+      // Detect screen share: video-only track with specific label patterns
+      const isScreenShareTrack = track.kind === 'video' && (
+        track.label.toLowerCase().includes('screen') ||
+        track.label.toLowerCase().includes('window') ||
+        track.label.toLowerCase().includes('display') ||
+        track.label.toLowerCase().includes('monitor') ||
+        track.label.toLowerCase().includes('tab') ||
+        track.label.toLowerCase().includes('entire screen')
+      )
+
+      if (isScreenShareTrack) {
+        console.log('[VoiceCall] Received screen share from', peerId, 'label:', track.label)
+        setRemoteScreenStreams(prev => ({ ...prev, [peerId]: stream }))
+        setCallPeers(prev => prev[peerId] ? { ...prev, [peerId]: { ...prev[peerId], screenSharing: true } } : prev)
+
+        track.onended = () => {
+          console.log('[VoiceCall] Screen share ended from', peerId)
+          setRemoteScreenStreams(prev => {
+            const next = { ...prev }
+            delete next[peerId]
+            return next
+          })
+          setCallPeers(prev => prev[peerId] ? { ...prev, [peerId]: { ...prev[peerId], screenSharing: false } } : prev)
+        }
+        return // Don't process as regular stream
+      }
+
+      // Regular audio/video stream
       if (hasAudio) {
         // Setup audio playback
         let el = remoteAudioRef.current[peerId]
@@ -201,11 +229,17 @@ export function useVoiceCall(userId) {
         startSpeakingDetection(stream, peerId)
       }
 
-      // Always update remote stream (contains both audio+video tracks)
+      // Update remote stream (contains both audio+video tracks)
       setRemoteStreams(prev => ({ ...prev, [peerId]: stream }))
 
       setCallPeers(prev => ({
-        ...prev, [peerId]: { connected: true, speaking: false, muted: false, camOff: !hasVideo },
+        ...prev, [peerId]: {
+          connected: true,
+          speaking: false,
+          muted: prev[peerId]?.muted || false,
+          camOff: !hasVideo,
+          screenSharing: prev[peerId]?.screenSharing || false
+        },
       }))
 
       // Listen for track add/remove to detect cam toggle
@@ -573,7 +607,7 @@ export function useVoiceCall(userId) {
               makingOfferRef.current[peerId] = true
               const offer = await pc.createOffer()
               await pc.setLocalDescription(offer)
-              sendSignal({ from: userId, to: peerId, type: 'offer', sdp: pc.localDescription.toJSON(), room: callRoomRef.current })
+              sendSignal({ from: userId, to: peerId, type: 'offer', sdp: pc.localDescription.sdp, room: callRoomRef.current })
               makingOfferRef.current[peerId] = false
             })()
         })
@@ -602,7 +636,7 @@ export function useVoiceCall(userId) {
             makingOfferRef.current[peerId] = true
             const offer = await pc.createOffer()
             await pc.setLocalDescription(offer)
-            sendSignal({ from: userId, to: peerId, type: 'offer', sdp: pc.localDescription.toJSON(), room: callRoomRef.current })
+            sendSignal({ from: userId, to: peerId, type: 'offer', sdp: pc.localDescription.sdp, room: callRoomRef.current })
             makingOfferRef.current[peerId] = false
           })()
       }
