@@ -19,7 +19,6 @@ export default function DeviceSettings({
     const [selectedVideoInput, setSelectedVideoInput] = useState(currentVideoInput || '')
     const [previewStream, setPreviewStream] = useState(null)
     const videoRef = useRef(null)
-    const font = "'JetBrains Mono', monospace"
 
     // Load devices on mount
     useEffect(() => {
@@ -101,16 +100,16 @@ export default function DeviceSettings({
 
     return (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'fadeIn 0.2s ease' }}>
-            <div style={{ width: 420, maxHeight: '90vh', overflowY: 'auto', background: T.surface, borderRadius: 20, border: `1px solid ${T.border}`, overflow: 'hidden', boxShadow: '0 30px 80px rgba(0,0,0,0.6)' }}>
+            <div style={{ width: 440, maxHeight: '90vh', overflowY: 'auto', background: T.surface, borderRadius: 24, border: `1px solid ${T.border}`, overflow: 'hidden', boxShadow: '0 30px 80px rgba(0,0,0,0.6)' }}>
                 {/* Header */}
-                <div style={{ padding: '16px 20px', borderBottom: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: 15, fontWeight: 700, color: T.text, fontFamily: font }}>⚙️ Configurações de Dispositivos</span>
-                    <button onClick={handleClose} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${T.border}`, background: 'transparent', color: T.textMuted, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                <div style={{ padding: '18px 22px', borderBottom: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: 16, fontWeight: 700, color: T.text, fontFamily: T.fontMain }}>⚙️ Configurações de Dispositivos</span>
+                    <button onClick={handleClose} style={{ width: 30, height: 30, borderRadius: 12, border: `1px solid ${T.border}`, background: 'transparent', color: T.textMuted, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
                 </div>
 
-                <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 20 }}>
+                <div style={{ padding: 22, display: 'flex', flexDirection: 'column', gap: 22 }}>
                     {/* Video Preview */}
-                    <div style={{ borderRadius: 12, overflow: 'hidden', background: '#111', aspectRatio: '16/9', position: 'relative' }}>
+                    <div style={{ borderRadius: 16, overflow: 'hidden', background: '#111', aspectRatio: '16/9', position: 'relative' }}>
                         <video
                             ref={videoRef}
                             autoPlay
@@ -119,7 +118,7 @@ export default function DeviceSettings({
                             style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' }}
                         />
                         {!previewStream && (
-                            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.textDim, fontSize: 12, fontFamily: font }}>
+                            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.textDim, fontSize: 14, fontFamily: T.fontMain }}>
                                 📷 Preview da câmera
                             </div>
                         )}
@@ -127,16 +126,16 @@ export default function DeviceSettings({
 
                     {/* Camera Selection */}
                     <div>
-                        <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: T.textMuted, marginBottom: 8, fontFamily: font, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: T.textMuted, marginBottom: 8, fontFamily: T.fontMain, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                             📷 Câmera
                         </label>
                         <select
                             value={selectedVideoInput}
                             onChange={e => setSelectedVideoInput(e.target.value)}
                             style={{
-                                width: '100%', padding: '10px 14px', borderRadius: 10,
+                                width: '100%', padding: '12px 16px', borderRadius: 14,
                                 border: `1px solid ${T.border}`, background: T.bg, color: T.text,
-                                fontSize: 12, fontFamily: font, cursor: 'pointer', outline: 'none',
+                                fontSize: 13, fontFamily: T.fontMain, cursor: 'pointer', outline: 'none',
                             }}
                         >
                             {devices.videoInputs.map(d => (
@@ -147,16 +146,16 @@ export default function DeviceSettings({
 
                     {/* Microphone Selection */}
                     <div>
-                        <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: T.textMuted, marginBottom: 8, fontFamily: font, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: T.textMuted, marginBottom: 8, fontFamily: T.fontMain, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                             🎤 Microfone
                         </label>
                         <select
                             value={selectedAudioInput}
                             onChange={e => setSelectedAudioInput(e.target.value)}
                             style={{
-                                width: '100%', padding: '10px 14px', borderRadius: 10,
+                                width: '100%', padding: '12px 16px', borderRadius: 14,
                                 border: `1px solid ${T.border}`, background: T.bg, color: T.text,
-                                fontSize: 12, fontFamily: font, cursor: 'pointer', outline: 'none',
+                                fontSize: 13, fontFamily: T.fontMain, cursor: 'pointer', outline: 'none',
                             }}
                         >
                             {devices.audioInputs.map(d => (
@@ -167,16 +166,16 @@ export default function DeviceSettings({
 
                     {/* Speaker Selection */}
                     <div>
-                        <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: T.textMuted, marginBottom: 8, fontFamily: font, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: T.textMuted, marginBottom: 8, fontFamily: T.fontMain, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                             🔊 Alto-falante (Saída de áudio)
                         </label>
                         <select
                             value={selectedAudioOutput}
                             onChange={e => setSelectedAudioOutput(e.target.value)}
                             style={{
-                                width: '100%', padding: '10px 14px', borderRadius: 10,
+                                width: '100%', padding: '12px 16px', borderRadius: 14,
                                 border: `1px solid ${T.border}`, background: T.bg, color: T.text,
-                                fontSize: 12, fontFamily: font, cursor: 'pointer', outline: 'none',
+                                fontSize: 13, fontFamily: T.fontMain, cursor: 'pointer', outline: 'none',
                             }}
                         >
                             {devices.audioOutputs.length === 0 ? (
@@ -187,16 +186,16 @@ export default function DeviceSettings({
                                 ))
                             )}
                         </select>
-                        <div style={{ fontSize: 10, color: T.textDim, marginTop: 6, fontFamily: font }}>
+                        <div style={{ fontSize: 11, color: T.textDim, marginTop: 8, fontFamily: T.fontMain }}>
                             ℹ️ Nem todos os navegadores suportam seleção de saída de áudio
                         </div>
                     </div>
                 </div>
 
                 {/* Footer */}
-                <div style={{ padding: '12px 20px 20px', display: 'flex', gap: 10 }}>
-                    <button onClick={handleClose} style={{ flex: 1, padding: '11px 0', borderRadius: 10, border: `1px solid ${T.border}`, background: 'transparent', color: T.textMuted, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: font }}>Cancelar</button>
-                    <button onClick={handleSave} style={{ flex: 1, padding: '11px 0', borderRadius: 10, border: 'none', background: `linear-gradient(135deg, ${T.accent}, ${T.accentLight})`, color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: font }}>Salvar</button>
+                <div style={{ padding: '14px 22px 22px', display: 'flex', gap: 12 }}>
+                    <button onClick={handleClose} style={{ flex: 1, padding: '12px 0', borderRadius: 16, border: `1px solid ${T.border}`, background: 'transparent', color: T.textMuted, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: T.fontMain }}>Cancelar</button>
+                    <button onClick={handleSave} style={{ flex: 1, padding: '12px 0', borderRadius: 16, border: 'none', background: `linear-gradient(135deg, ${T.accent}, ${T.accentLight})`, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: T.fontMain }}>Salvar</button>
                 </div>
             </div>
         </div>

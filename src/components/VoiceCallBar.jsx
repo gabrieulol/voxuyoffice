@@ -16,39 +16,38 @@ export default function VoiceCallBar({
 
   const connectedPeers = Object.entries(callPeers).filter(([_, p]) => p.connected)
   const totalInCall = connectedPeers.length + 1
-  const font = "'JetBrains Mono',monospace"
   const isSelfSpeaking = speakingUsers.has(player?.id)
   const anyoneHasVideo = !isCamOff || connectedPeers.some(([_, p]) => !p.camOff)
   const hasScreenShare = isScreenSharing || connectedPeers.some(([_, p]) => p.screenSharing)
 
   return (
     <div style={{
-      position: 'absolute', top: 56, left: '50%', transform: 'translateX(-50%)',
+      position: 'absolute', top: 60, left: '50%', transform: 'translateX(-50%)',
       background: 'rgba(0,0,0,0.92)', backdropFilter: 'blur(16px)',
-      borderRadius: 16, border: `1px solid ${T.accent}33`,
+      borderRadius: 20, border: `1px solid ${T.accent}33`,
       boxShadow: `0 8px 40px rgba(0,0,0,0.6), 0 0 20px ${T.accent}11`,
       zIndex: 60, animation: 'fadeIn 0.25s ease',
-      minWidth: 220, maxWidth: hasScreenShare && expanded ? 800 : (anyoneHasVideo && expanded ? 600 : 500),
+      minWidth: 240, maxWidth: hasScreenShare && expanded ? 800 : (anyoneHasVideo && expanded ? 600 : 500),
       transition: 'max-width 0.3s ease',
     }}>
       {/* Header */}
       <div onClick={() => setExpanded(p => !p)} style={{
-        padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 8,
+        padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 10,
         cursor: 'pointer', borderBottom: expanded ? `1px solid ${T.border}` : 'none',
       }}>
         <div style={{
-          width: 8, height: 8, borderRadius: '50%',
+          width: 9, height: 9, borderRadius: '50%',
           background: callState === 'active' ? T.accent : T.warn,
           boxShadow: `0 0 6px ${callState === 'active' ? T.accent : T.warn}`,
           animation: callState === 'joining' ? 'pulse 1s infinite' : 'none',
         }} />
-        <span style={{ fontSize: 11, fontWeight: 700, color: T.text, fontFamily: font, flex: 1 }}>
+        <span style={{ fontSize: 13, fontWeight: 600, color: T.text, fontFamily: T.fontMain, flex: 1 }}>
           {callState === 'joining' ? 'Conectando...' : `🔊 Chamada ativa`}
         </span>
-        <span style={{ fontSize: 9, color: T.textDim, fontFamily: font }}>
+        <span style={{ fontSize: 11, color: T.textDim, fontFamily: T.fontMain }}>
           {totalInCall} {totalInCall === 1 ? 'pessoa' : 'pessoas'}
         </span>
-        <span style={{ fontSize: 10, color: T.textDim, transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>▾</span>
+        <span style={{ fontSize: 11, color: T.textDim, transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>▾</span>
       </div>
 
       {/* Video Grid + Avatar bubbles */}
@@ -115,7 +114,7 @@ export default function VoiceCallBar({
 
       {/* Controls */}
       <div style={{
-        padding: '8px 14px', display: 'flex', gap: 6, justifyContent: 'center',
+        padding: '10px 16px', display: 'flex', gap: 8, justifyContent: 'center',
         borderTop: expanded ? `1px solid ${T.border}` : 'none',
       }}>
         <CallBtn active={!isMuted} danger={isMuted} onClick={onToggleMute} icon={isMuted ? '🔇' : '🎙'} label={isMuted ? 'Mutado' : 'Mic'} />
@@ -134,9 +133,9 @@ function CallBtn({ active, danger, onClick, icon, label }) {
   const color = danger ? T.danger : active ? T.accent : T.textDim
   return (
     <button onClick={onClick} style={{
-      padding: '6px 12px', borderRadius: 10, border: `1px solid ${border}`,
-      background: bg, color, fontSize: 10, fontWeight: 700, cursor: 'pointer',
-      fontFamily: "'JetBrains Mono',monospace", display: 'flex', alignItems: 'center', gap: 4,
+      padding: '8px 14px', borderRadius: 14, border: `1px solid ${border}`,
+      background: bg, color, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+      fontFamily: T.fontMain, display: 'flex', alignItems: 'center', gap: 5,
     }}>
       {icon} {label}
     </button>
@@ -159,8 +158,8 @@ function VideoTile({ name, emoji, avatarUrl, avatarIdx, speaking, muted, camOff,
 
   return (
     <div style={{
-      position: 'relative', borderRadius: 12, overflow: 'hidden',
-      background: '#111', aspectRatio: '4/3', minHeight: 80,
+      position: 'relative', borderRadius: 16, overflow: 'hidden',
+      background: '#111', aspectRatio: '4/3', minHeight: 85,
       border: speaking ? `2px solid ${T.accent}` : '2px solid #222',
       transition: 'border-color 0.2s',
     }}>
@@ -180,10 +179,10 @@ function VideoTile({ name, emoji, avatarUrl, avatarIdx, speaking, muted, camOff,
           background: `linear-gradient(135deg,${c1}22,${c2}22)`,
         }}>
           <div style={{
-            width: 40, height: 40, borderRadius: '50%',
+            width: 44, height: 44, borderRadius: '50%',
             background: `linear-gradient(135deg,${c1},${c2})`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 20, overflow: 'hidden',
+            fontSize: 22, overflow: 'hidden',
             border: speaking ? `2px solid ${T.accent}` : '2px solid transparent',
           }}>
             {avatarUrl ? <img src={avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : emoji}
@@ -194,12 +193,12 @@ function VideoTile({ name, emoji, avatarUrl, avatarIdx, speaking, muted, camOff,
       {/* Name + indicators overlay */}
       <div style={{
         position: 'absolute', bottom: 0, left: 0, right: 0,
-        padding: '4px 6px', background: 'linear-gradient(transparent, rgba(0,0,0,0.8))',
-        display: 'flex', alignItems: 'center', gap: 4,
+        padding: '6px 8px', background: 'linear-gradient(transparent, rgba(0,0,0,0.8))',
+        display: 'flex', alignItems: 'center', gap: 5,
       }}>
-        {speaking && <div style={{ width: 6, height: 6, borderRadius: '50%', background: T.accent, flexShrink: 0 }} />}
-        <span style={{ fontSize: 9, fontWeight: 700, color: '#fff', fontFamily: "'JetBrains Mono',monospace", flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
-        {muted && <span style={{ fontSize: 8, opacity: 0.7 }}>🔇</span>}
+        {speaking && <div style={{ width: 7, height: 7, borderRadius: '50%', background: T.accent, flexShrink: 0 }} />}
+        <span style={{ fontSize: 11, fontWeight: 600, color: '#fff', fontFamily: T.fontMain, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
+        {muted && <span style={{ fontSize: 9, opacity: 0.7 }}>🔇</span>}
       </div>
     </div>
   )
@@ -209,15 +208,15 @@ function VideoTile({ name, emoji, avatarUrl, avatarIdx, speaking, muted, camOff,
 function AvatarBubble({ name, emoji, avatarUrl, avatarIdx, speaking, muted }) {
   const [c1, c2] = PALETTES[avatarIdx % PALETTES.length]
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, padding: '4px 8px', borderRadius: 12, background: speaking ? `${T.accent}12` : 'transparent' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '6px 10px', borderRadius: 14, background: speaking ? `${T.accent}12` : 'transparent' }}>
       <div style={{ position: 'relative' }}>
         {speaking && <div style={{ position: 'absolute', inset: -4, borderRadius: '50%', border: `2px solid ${T.accent}`, animation: 'pulse 0.8s infinite' }} />}
-        <div style={{ width: 36, height: 36, borderRadius: '50%', background: `linear-gradient(135deg,${c1},${c2})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, overflow: 'hidden', border: speaking ? `2px solid ${T.accent}` : '2px solid transparent', opacity: muted ? 0.5 : 1 }}>
+        <div style={{ width: 40, height: 40, borderRadius: '50%', background: `linear-gradient(135deg,${c1},${c2})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, overflow: 'hidden', border: speaking ? `2px solid ${T.accent}` : '2px solid transparent', opacity: muted ? 0.5 : 1 }}>
           {avatarUrl ? <img src={avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : emoji}
         </div>
-        {muted && <div style={{ position: 'absolute', bottom: -2, right: -2, width: 14, height: 14, borderRadius: '50%', background: T.danger, border: `2px solid ${T.bg}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 7 }}>🔇</div>}
+        {muted && <div style={{ position: 'absolute', bottom: -2, right: -2, width: 16, height: 16, borderRadius: '50%', background: T.danger, border: `2px solid ${T.bg}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8 }}>🔇</div>}
       </div>
-      <span style={{ fontSize: 8, fontWeight: 700, color: speaking ? T.accent : T.textDim, fontFamily: "'JetBrains Mono',monospace", maxWidth: 56, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
+      <span style={{ fontSize: 10, fontWeight: 600, color: speaking ? T.accent : T.textDim, fontFamily: T.fontMain, maxWidth: 60, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
     </div>
   )
 }
@@ -234,7 +233,7 @@ function ScreenShareTile({ stream, label }) {
 
   return (
     <div style={{
-      position: 'relative', borderRadius: 12, overflow: 'hidden',
+      position: 'relative', borderRadius: 16, overflow: 'hidden',
       background: '#111', width: '100%', aspectRatio: '16/9',
       border: `2px solid ${T.accent}44`,
     }}>
@@ -251,17 +250,17 @@ function ScreenShareTile({ stream, label }) {
           width: '100%', height: '100%', display: 'flex', flexDirection: 'column',
           alignItems: 'center', justifyContent: 'center', color: T.textDim,
         }}>
-          <span style={{ fontSize: 32, marginBottom: 8 }}>💻</span>
-          <span style={{ fontSize: 11, fontFamily: "'JetBrains Mono',monospace" }}>Aguardando tela...</span>
+          <span style={{ fontSize: 36, marginBottom: 10 }}>💻</span>
+          <span style={{ fontSize: 13, fontFamily: T.fontMain }}>Aguardando tela...</span>
         </div>
       )}
       <div style={{
         position: 'absolute', bottom: 0, left: 0, right: 0,
-        padding: '6px 10px', background: 'linear-gradient(transparent, rgba(0,0,0,0.9))',
-        display: 'flex', alignItems: 'center', gap: 6,
+        padding: '8px 12px', background: 'linear-gradient(transparent, rgba(0,0,0,0.9))',
+        display: 'flex', alignItems: 'center', gap: 8,
       }}>
-        <span style={{ fontSize: 12 }}>💻</span>
-        <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', fontFamily: "'JetBrains Mono',monospace" }}>{label}</span>
+        <span style={{ fontSize: 14 }}>💻</span>
+        <span style={{ fontSize: 12, fontWeight: 600, color: '#fff', fontFamily: T.fontMain }}>{label}</span>
       </div>
     </div>
   )
