@@ -263,7 +263,12 @@ export default function App() {
     const { data } = await supabase.from('profiles').select('*').eq('id', uid).single()
     if (data) {
       setProfile(data)
-      const spawn = SPAWN_POINTS[Math.floor(Math.random() * SPAWN_POINTS.length)]
+      // Use saved position if available, otherwise spawn randomly
+      const hasPosition = typeof data.last_x === 'number' && typeof data.last_y === 'number'
+      const spawn = hasPosition
+        ? { x: data.last_x, y: data.last_y }
+        : SPAWN_POINTS[Math.floor(Math.random() * SPAWN_POINTS.length)]
+
       setPlayer({
         id: uid, x: spawn.x, y: spawn.y,
         status: data.status || 'available',
@@ -365,6 +370,18 @@ export default function App() {
     })
   }, [player?.x, player?.y, player?.status, player?.emoji, player?.avatar_url])
 
+  // ─── SAVE POSITION to database (debounced) ───
+  useEffect(() => {
+    if (!player || !user) return
+    const timeout = setTimeout(() => {
+      supabase.from('profiles').update({
+        last_x: player.x,
+        last_y: player.y
+      }).eq('id', user.id)
+    }, 1000) // Save after 1 second of no movement
+    return () => clearTimeout(timeout)
+  }, [player?.x, player?.y, user?.id])
+
   // ─── KEYBOARD ───
   useEffect(() => {
     if (!player) return
@@ -401,10 +418,60 @@ export default function App() {
   }
 
   const handleAvatarSave = async ({ photo, emoji }) => {
-    setPlayer(p => ({ ...p, avatar_url: photo, emoji: emoji || p.emoji }))
     setShowAvatarEditor(false)
+
+    let avatarUrl = photo
+
+    // If photo is a data URL (base64), upload to Supabase Storage
+    if (photo && photo.startsWith('data:')) {
+      try {
+        showNotif('📤 Fazendo upload da foto...')
+
+        // Convert base64 to blob
+        const response = await fetch(photo)
+        const blob = await response.blob()
+
+        // Generate unique filename
+        const fileExt = blob.type.split('/')[1] || 'jpg'
+        const fileName = `${user.id}-${Date.now()}.${fileExt}`
+        const filePath = `avatars/${fileName}`
+
+        // Upload to Supabase Storage
+        const { data, error } = await supabase.storage
+          .from('avatars')
+          .upload(filePath, blob, {
+            cacheControl: '3600',
+            upsert: true
+          })
+
+        if (error) {
+          console.error('Upload error:', error)
+          showNotif('❌ Erro ao fazer upload')
+          return
+        }
+
+        // Get public URL
+        const { data: { publicUrl } } = supabase.storage
+          .from('avatars')
+          .getPublicUrl(filePath)
+
+        avatarUrl = publicUrl
+      } catch (err) {
+        console.error('Upload failed:', err)
+        showNotif('❌ Erro ao fazer upload da foto')
+        return
+      }
+    }
+
+    // Update local state
+    setPlayer(p => ({ ...p, avatar_url: avatarUrl, emoji: emoji || p.emoji }))
     showNotif('✅ Avatar atualizado!')
-    await supabase.from('profiles').update({ avatar_url: photo, emoji: emoji || player.emoji }).eq('id', user.id)
+
+    // Update database
+    await supabase.from('profiles').update({
+      avatar_url: avatarUrl,
+      emoji: emoji || player.emoji
+    }).eq('id', user.id)
   }
 
   const handleLogout = async () => {
