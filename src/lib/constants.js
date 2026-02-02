@@ -104,8 +104,8 @@ export const dist = (a, b) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y)
 export const canWalk = (x, y) => {
   if (x < 0 || y < 0 || x >= MAP_COLS || y >= MAP_ROWS) return false
   const t = MAP[y]?.[x]
-  // Can walk on: floor, carpet, doors
-  return t === 0 || t === 8 || t === 11 || t === 12
+  // Can walk on: floor(0), door(8), carpet blue(11), carpet purple(12), chair(18)
+  return t === 0 || t === 8 || t === 11 || t === 12 || t === 18
 }
 export const getRoom = (x, y) => ROOMS.find(r => x >= r.x1 && x <= r.x2 && y >= r.y1 && y <= r.y2) || null
 export const timeNow = () => new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
