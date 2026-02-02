@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { T, PALETTES } from '../lib/constants'
+import { T, PALETTES, ROOMS } from '../lib/constants'
 
 // ═══════════════════════════════════════════
 // CallBar — Floating call UI with video grid
@@ -9,7 +9,7 @@ export default function VoiceCallBar({
   callState, callPeers, callRoom, isMuted, isCamOff, isScreenSharing,
   onToggleMute, onToggleCamera, onToggleScreenShare, onLeaveCall,
   peersMap, player, speakingUsers,
-  remoteStreams, localStream, screenStream,
+  remoteStreams, remoteScreenStreams, localStream, screenStream,
 }) {
   const [expanded, setExpanded] = useState(true)
   if (callState === 'idle') return null
@@ -19,7 +19,8 @@ export default function VoiceCallBar({
   const font = "'JetBrains Mono',monospace"
   const isSelfSpeaking = speakingUsers.has(player?.id)
   const anyoneHasVideo = !isCamOff || connectedPeers.some(([_, p]) => !p.camOff)
-  const hasScreenShare = isScreenSharing || connectedPeers.some(([_, p]) => p.screenSharing)
+  const remoteScreenCount = remoteScreenStreams ? Object.keys(remoteScreenStreams).length : 0
+  const hasScreenShare = isScreenSharing || remoteScreenCount > 0
 
   return (
     <div style={{
@@ -43,7 +44,11 @@ export default function VoiceCallBar({
           animation: callState === 'joining' ? 'pulse 1s infinite' : 'none',
         }} />
         <span style={{ fontSize: 11, fontWeight: 700, color: T.text, fontFamily: font, flex: 1 }}>
-          {callState === 'joining' ? 'Conectando...' : `🔊 Chamada ativa`}
+          {callState === 'joining' ? 'Conectando...' : (() => {
+            const roomId = callRoom?.replace('room-', '')
+            const room = ROOMS.find(r => r.id === roomId)
+            return room ? room.label : '🔊 Chamada'
+          })()}
         </span>
         <span style={{ fontSize: 9, color: T.textDim, fontFamily: font }}>
           {totalInCall} {totalInCall === 1 ? 'pessoa' : 'pessoas'}
@@ -54,15 +59,29 @@ export default function VoiceCallBar({
       {/* Video Grid + Avatar bubbles */}
       {expanded && callState === 'active' && (
         <div style={{ padding: '8px 10px' }}>
-          {/* Screen Share Display */}
-          {(isScreenSharing || hasScreenShare) && (
+          {/* Screen Share Display - Local */}
+          {isScreenSharing && (
             <div style={{ marginBottom: 8 }}>
               <ScreenShareTile
-                stream={isScreenSharing ? screenStream : null}
-                label={isScreenSharing ? 'Sua tela' : 'Tela compartilhada'}
+                stream={screenStream}
+                label="Sua tela"
               />
             </div>
           )}
+          
+          {/* Screen Share Display - Remote */}
+          {remoteScreenStreams && Object.entries(remoteScreenStreams).map(([peerId, stream]) => {
+            const peerData = peersMap[peerId] || {}
+            const peerName = (peerData.display_name || 'Alguém').split(' ')[0]
+            return (
+              <div key={`screen-${peerId}`} style={{ marginBottom: 8 }}>
+                <ScreenShareTile
+                  stream={stream}
+                  label={`Tela de ${peerName}`}
+                />
+              </div>
+            )
+          })}
 
           {anyoneHasVideo || hasScreenShare ? (
             <div style={{

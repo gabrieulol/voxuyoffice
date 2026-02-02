@@ -366,7 +366,7 @@ export default function App() {
   // ─── VOICE CALLS ───
   const {
     callState, callPeers, isMuted: voiceMuted, isCamOff, isScreenSharing, speakingUsers,
-    incomingCall, remoteStreams, localStream, screenStream, selectedDevices,
+    incomingCall, remoteStreams, remoteScreenStreams, localStream, screenStream, selectedDevices,
     joinCall, callPerson, acceptCall, declineCall,
     leaveCall, toggleMute: voiceToggleMute, toggleCamera, toggleScreenShare, changeDevices, callRoom,
   } = useVoiceCall(user?.id)
@@ -383,10 +383,60 @@ export default function App() {
 
   const nearbyPeople = peersArr.filter(c => player && dist(player, c) <= PROXIMITY_RANGE)
   const currentRoom = player ? getRoom(player.x, player.y) : null
+  const previousRoomRef = useRef(null)
 
-  // Helper: start a call in the current room
+  // ─── AUTO-JOIN ROOM CALLS ───
+  // Automatically join/leave voice calls when entering/leaving rooms
+  useEffect(() => {
+    if (!player || !user) return
+
+    const prevRoom = previousRoomRef.current
+    const newRoom = currentRoom
+
+    // Room changed
+    if (prevRoom?.id !== newRoom?.id) {
+      // Update ref immediately
+      previousRoomRef.current = newRoom
+
+      // Left a room (or moved to hallway) - leave the call
+      if (prevRoom && prevRoom.id !== 'hallway' && callState === 'active' && callRoom === `room-${prevRoom.id}`) {
+        console.log('[AutoCall] Leaving room call:', prevRoom.label)
+        leaveCall()
+      }
+
+      // Entered a new room (not hallway) - auto-join call
+      if (newRoom && newRoom.id !== 'hallway') {
+        // Small delay to let the leave complete and avoid race conditions
+        const timer = setTimeout(async () => {
+          // Check if we're still in the same room and not already in a call
+          if (previousRoomRef.current?.id === newRoom.id && callState === 'idle') {
+            console.log('[AutoCall] Auto-joining room call:', newRoom.label)
+            try {
+              // Find other people in the same room
+              const peopleInRoom = peersArr.filter(p => {
+                const pRoom = getRoom(p.x, p.y)
+                return pRoom?.id === newRoom.id
+              }).map(p => p.id)
+
+              await joinCall(`room-${newRoom.id}`, peopleInRoom, true) // autoJoin = true (camera off by default)
+              showNotif(`🔊 Conectado: ${newRoom.label}`)
+            } catch (e) {
+              console.warn('[AutoCall] Failed to auto-join:', e)
+              // Don't show error for auto-join failures - user can manually join
+            }
+          }
+        }, prevRoom ? 600 : 200)
+
+        return () => clearTimeout(timer)
+      }
+    }
+  }, [currentRoom?.id, player, user, callState, callRoom, leaveCall, joinCall, peersArr, showNotif])
+
+  // Helper: manually reconnect to room call (if auto-join failed or user left)
   const handleStartCall = useCallback(async () => {
-    if (!currentRoom || !player) return
+    if (!currentRoom || !player || currentRoom.id === 'hallway') return
+    if (callState === 'active') return // Already in a call
+    
     try {
       setCallError(null)
       const peerIdsInRoom = peersArr
@@ -395,13 +445,13 @@ export default function App() {
           return room?.id === currentRoom.id
         })
         .map(p => p.id)
-      await joinCall(currentRoom.id, peerIdsInRoom)
-      showNotif(`🔊 Entrou na chamada: ${currentRoom.label}`)
+      await joinCall(`room-${currentRoom.id}`, peerIdsInRoom, false) // manual join = camera ON
+      showNotif(`🔊 Conectado: ${currentRoom.label}`)
     } catch (e) {
       setCallError('Não foi possível acessar o microfone. Verifique as permissões do navegador.')
-      showNotif('❌ Erro ao iniciar chamada')
+      showNotif('❌ Erro ao conectar')
     }
-  }, [currentRoom, player, peersArr, joinCall])
+  }, [currentRoom, player, peersArr, joinCall, callState])
 
   const handleLeaveCall = useCallback(() => {
     leaveCall()
@@ -658,6 +708,7 @@ export default function App() {
               player={player}
               speakingUsers={speakingUsers}
               remoteStreams={remoteStreams}
+              remoteScreenStreams={remoteScreenStreams}
               localStream={localStream}
               screenStream={screenStream}
             />
@@ -674,11 +725,19 @@ export default function App() {
                   <button onClick={voiceToggleMute} style={{ width: 38, height: 38, borderRadius: 10, border: `1px solid ${voiceMuted ? T.danger + '44' : T.accent + '44'}`, background: voiceMuted ? `${T.danger}15` : `${T.accent}15`, color: T.text, fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title={voiceMuted ? 'Ativar mic' : 'Mutar mic'}>{voiceMuted ? '🔇' : '🎙'}</button>
                   <button onClick={toggleCamera} style={{ width: 38, height: 38, borderRadius: 10, border: `1px solid ${isCamOff ? T.border : T.accent + '44'}`, background: isCamOff ? 'transparent' : `${T.accent}15`, color: T.text, fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title={isCamOff ? 'Ligar câmera' : 'Desligar câmera'}>{isCamOff ? '📵' : '📹'}</button>
                   <button onClick={toggleScreenShare} style={{ width: 38, height: 38, borderRadius: 10, border: `1px solid ${isScreenSharing ? T.accent + '44' : T.border}`, background: isScreenSharing ? `${T.accent}15` : 'transparent', color: T.text, fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title={isScreenSharing ? 'Parar compartilhamento' : 'Compartilhar tela'}>💻</button>
-                  <button onClick={handleLeaveCall} style={{ width: 38, height: 38, borderRadius: 10, border: `1px solid ${T.danger}44`, background: `${T.danger}20`, color: T.text, fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Sair da chamada">❌</button>
+                  <button onClick={handleLeaveCall} style={{ width: 38, height: 38, borderRadius: 10, border: `1px solid ${T.danger}44`, background: `${T.danger}20`, color: T.text, fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Sair da chamada (vai reconectar ao mudar de sala)">❌</button>
                   <div style={{ width: 1, height: 24, background: T.border, alignSelf: 'center' }} />
                 </>
               ) : (
-                <button onClick={handleStartCall} disabled={callState === 'joining'} style={{ width: 38, height: 38, borderRadius: 10, border: `1px solid ${T.accent}44`, background: `${T.accent}15`, color: T.text, fontSize: 14, fontWeight: 700, cursor: callState === 'joining' ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: callState === 'joining' ? 0.5 : 1 }} title={currentRoom ? `Entrar em chamada: ${currentRoom.label}` : 'Entre em uma sala para ligar'}>{callState === 'joining' ? '⏳' : '🎧'}</button>
+                currentRoom && currentRoom.id !== 'hallway' ? (
+                  <button onClick={handleStartCall} disabled={callState === 'joining'} style={{ padding: '0 14px', height: 38, borderRadius: 10, border: `1px solid ${T.accent}44`, background: `${T.accent}15`, color: T.text, fontSize: 11, fontWeight: 700, cursor: callState === 'joining' ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: callState === 'joining' ? 0.5 : 1, fontFamily: "'JetBrains Mono',monospace" }} title="Reconectar ao áudio da sala">
+                    {callState === 'joining' ? '⏳' : '🎧'} {callState === 'joining' ? 'Conectando...' : 'Reconectar'}
+                  </button>
+                ) : (
+                  <div style={{ padding: '0 14px', height: 38, borderRadius: 10, border: `1px solid ${T.border}`, background: 'transparent', color: T.textDim, fontSize: 10, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontFamily: "'JetBrains Mono',monospace" }}>
+                    🚪 Entre em uma sala
+                  </div>
+                )
               )}
               <button onClick={() => setShowReactions(p => !p)} style={{ width: 38, height: 38, borderRadius: 10, border: `1px solid ${T.border}`, background: 'transparent', color: T.text, fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Reações">😊</button>
               <button onClick={() => setShowDeviceSettings(true)} style={{ width: 38, height: 38, borderRadius: 10, border: `1px solid ${T.border}`, background: 'transparent', color: T.text, fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Configurações de dispositivo">⚙️</button>
