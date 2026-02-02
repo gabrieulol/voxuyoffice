@@ -189,73 +189,35 @@ export function useVoiceCall(userId) {
       const stream = event.streams[0]
       if (!stream) return
 
-      const track = event.track
-      const hasAudio = stream.getAudioTracks().length > 0
+      // Check if this is audio or video
       const hasVideo = stream.getVideoTracks().length > 0
+      const hasAudio = stream.getAudioTracks().length > 0
 
-      // Identify if this is a screen share track
-      // Screen share tracks usually have 'screen' in the label or come from getDisplayMedia
-      const videoTrack = stream.getVideoTracks()[0]
-      const isScreenShare = videoTrack && (
-        videoTrack.label.toLowerCase().includes('screen') ||
-        videoTrack.label.toLowerCase().includes('window') ||
-        videoTrack.label.toLowerCase().includes('display') ||
-        videoTrack.label.toLowerCase().includes('monitor') ||
-        videoTrack.label.toLowerCase().includes('tab') ||
-        // If video track has no audio tracks and only video, it might be screen share
-        (hasVideo && !hasAudio && stream.getTracks().length === 1)
-      )
+      if (hasAudio) {
+        // Setup audio playback
+        let el = remoteAudioRef.current[peerId]
+        if (!el) { el = new Audio(); el.autoplay = true; el.playsInline = true; remoteAudioRef.current[peerId] = el }
+        el.srcObject = stream
+        startSpeakingDetection(stream, peerId)
+      }
 
-      if (isScreenShare) {
-        // This is a screen share stream
-        console.log('[VoiceCall] Received screen share from', peerId)
-        setRemoteScreenStreams(prev => ({ ...prev, [peerId]: stream }))
-        setCallPeers(prev => prev[peerId] ? { ...prev, [peerId]: { ...prev[peerId], screenSharing: true } } : prev)
+      // Always update remote stream (contains both audio+video tracks)
+      setRemoteStreams(prev => ({ ...prev, [peerId]: stream }))
 
-        // Handle track end
-        track.onended = () => {
-          setRemoteScreenStreams(prev => {
-            const next = { ...prev }
-            delete next[peerId]
-            return next
-          })
-          setCallPeers(prev => prev[peerId] ? { ...prev, [peerId]: { ...prev[peerId], screenSharing: false } } : prev)
-        }
-      } else {
-        // This is camera/audio stream
-        if (hasAudio) {
-          // Setup audio playback
-          let el = remoteAudioRef.current[peerId]
-          if (!el) { el = new Audio(); el.autoplay = true; el.playsInline = true; remoteAudioRef.current[peerId] = el }
-          el.srcObject = stream
-          startSpeakingDetection(stream, peerId)
-        }
+      setCallPeers(prev => ({
+        ...prev, [peerId]: { connected: true, speaking: false, muted: false, camOff: !hasVideo },
+      }))
 
-        // Update remote stream (contains both audio+video tracks)
+      // Listen for track add/remove to detect cam toggle
+      stream.onaddtrack = () => {
+        const vid = stream.getVideoTracks().length > 0
+        setCallPeers(prev => prev[peerId] ? { ...prev, [peerId]: { ...prev[peerId], camOff: !vid } } : prev)
         setRemoteStreams(prev => ({ ...prev, [peerId]: stream }))
-
-        setCallPeers(prev => ({
-          ...prev, [peerId]: {
-            ...prev[peerId],
-            connected: true,
-            speaking: false,
-            muted: prev[peerId]?.muted || false,
-            camOff: !hasVideo,
-            screenSharing: prev[peerId]?.screenSharing || false
-          },
-        }))
-
-        // Listen for track add/remove to detect cam toggle
-        stream.onaddtrack = () => {
-          const vid = stream.getVideoTracks().length > 0
-          setCallPeers(prev => prev[peerId] ? { ...prev, [peerId]: { ...prev[peerId], camOff: !vid } } : prev)
-          setRemoteStreams(prev => ({ ...prev, [peerId]: stream }))
-        }
-        stream.onremovetrack = () => {
-          const vid = stream.getVideoTracks().length > 0
-          setCallPeers(prev => prev[peerId] ? { ...prev, [peerId]: { ...prev[peerId], camOff: !vid } } : prev)
-          setRemoteStreams(prev => ({ ...prev, [peerId]: stream }))
-        }
+      }
+      stream.onremovetrack = () => {
+        const vid = stream.getVideoTracks().length > 0
+        setCallPeers(prev => prev[peerId] ? { ...prev, [peerId]: { ...prev[peerId], camOff: !vid } } : prev)
+        setRemoteStreams(prev => ({ ...prev, [peerId]: stream }))
       }
     }
 
@@ -411,15 +373,13 @@ export function useVoiceCall(userId) {
   }, [acquireMedia])
 
   // ─── JOIN ROOM CALL ───
-  // autoJoin: when true, starts with camera OFF (for automatic room calls)
-  const joinCall = useCallback(async (roomId, existingPeerIds = [], autoJoin = false) => {
+  const joinCall = useCallback(async (roomId, existingPeerIds = []) => {
     if (activeRef.current) return
     activeRef.current = true
     setCallState('joining')
     callRoomRef.current = roomId
     try {
-      // Auto-join starts with camera OFF for comfort, manual join starts with camera ON
-      await acquireMedia(!autoJoin)
+      await acquireMedia(true) // start with video on
       sendSignal({ from: userId, to: '*', type: 'peer-joined', room: roomId })
       existingPeerIds.forEach(pid => { if (pid !== userId) createPeer(pid, true) })
       setCallState('active')
@@ -613,7 +573,7 @@ export function useVoiceCall(userId) {
               makingOfferRef.current[peerId] = true
               const offer = await pc.createOffer()
               await pc.setLocalDescription(offer)
-              sendSignal({ from: userId, to: peerId, type: 'offer', sdp: pc.localDescription.sdp, room: callRoomRef.current })
+              sendSignal({ from: userId, to: peerId, type: 'offer', sdp: pc.localDescription.toJSON(), room: callRoomRef.current })
               makingOfferRef.current[peerId] = false
             })()
         })
@@ -642,7 +602,7 @@ export function useVoiceCall(userId) {
             makingOfferRef.current[peerId] = true
             const offer = await pc.createOffer()
             await pc.setLocalDescription(offer)
-            sendSignal({ from: userId, to: peerId, type: 'offer', sdp: pc.localDescription.sdp, room: callRoomRef.current })
+            sendSignal({ from: userId, to: peerId, type: 'offer', sdp: pc.localDescription.toJSON(), room: callRoomRef.current })
             makingOfferRef.current[peerId] = false
           })()
       }
