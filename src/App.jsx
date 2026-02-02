@@ -386,11 +386,16 @@ export default function App() {
   // ─── SAVE POSITION to database (debounced) ───
   useEffect(() => {
     if (!player || !user) return
-    const timeout = setTimeout(() => {
-      supabase.from('profiles').update({
-        last_x: player.x,
-        last_y: player.y
-      }).eq('id', user.id)
+    const timeout = setTimeout(async () => {
+      try {
+        await supabase.from('profiles').update({
+          last_x: player.x,
+          last_y: player.y
+        }).eq('id', user.id)
+        console.log('[Position] Saved:', player.x, player.y)
+      } catch (e) {
+        console.error('[Position] Failed to save:', e)
+      }
     }, 1000) // Save after 1 second of no movement
     return () => clearTimeout(timeout)
   }, [player?.x, player?.y, user?.id])
