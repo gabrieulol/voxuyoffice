@@ -11,17 +11,35 @@ export default function AuthScreen({ onAuth }) {
   const [error, setError] = useState('')
   const [isSignUp, setIsSignUp] = useState(false)
 
+  // Allowed email domains
+  const ALLOWED_DOMAINS = ['legalsense.com.br', 'voxuy.com']
+
+  const isEmailAllowed = (email) => {
+    const domain = email.split('@')[1]?.toLowerCase()
+    return ALLOWED_DOMAINS.includes(domain)
+  }
+
   const handleEmailAuth = async (e) => {
     e.preventDefault()
     setLoading(true)
     setError('')
 
+    // Validate email domain for sign up
+    if (isSignUp && !isEmailAllowed(email)) {
+      setError(`Apenas emails @legalsense.com.br ou @voxuy.com são permitidos.`)
+      setLoading(false)
+      return
+    }
+
     if (isSignUp) {
-      // Sign up with email + password
+      // Sign up with email + password (skip email confirmation)
       const { data, error: err } = await supabase.auth.signUp({
         email,
         password,
-        options: { data: { display_name: name || email.split('@')[0] } }
+        options: {
+          data: { display_name: name || email.split('@')[0] },
+          emailRedirectTo: undefined // No redirect needed
+        }
       })
       if (err) {
         setError(err.message)
@@ -29,10 +47,17 @@ export default function AuthScreen({ onAuth }) {
         return
       }
       if (data.user) {
-        // Auto-confirmed or email confirmation not required
-        if (data.session) {
+        // Automatically sign in after sign up (no email confirmation)
+        const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        })
+        if (!signInErr && signInData.user) {
+          onAuth(signInData.user)
+        } else if (data.session) {
           onAuth(data.user)
         } else {
+          // Fallback: in case email confirmation is still required on Supabase settings
           setStep('check_email')
         }
       }
@@ -114,7 +139,7 @@ export default function AuthScreen({ onAuth }) {
             <label style={{ fontSize: 10, color: T.textDim, fontWeight: 600, display: 'block', marginBottom: 4, letterSpacing: '0.06em' }}>EMAIL</label>
             <input
               type="email" value={email} onChange={e => setEmail(e.target.value)}
-              placeholder="voce@voxuy.com.br"
+              placeholder="voce@legalsense.com.br"
               required
               style={{ width: '100%', padding: '12px 16px', border: `1px solid ${T.border}`, borderRadius: 12, background: T.bg, color: T.text, fontSize: 13, fontFamily: font, outline: 'none' }}
               onFocus={e => e.target.style.borderColor = T.accent}
