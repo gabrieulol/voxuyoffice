@@ -548,13 +548,35 @@ export default function App() {
 
       {/* MAIN */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', background: '#0a0a0e', overflow: 'hidden' }}>
-          <div ref={mapRef} onClick={handleMapClick} style={{ width: mapW, height: mapH, position: 'relative', cursor: 'crosshair', borderRadius: 4, overflow: 'hidden' }}>
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', background: '#f1f5f9', overflow: 'hidden' }}>
+          <div ref={mapRef} onClick={handleMapClick} style={{ width: mapW, height: mapH, position: 'relative', cursor: 'crosshair', borderRadius: 8, overflow: 'hidden', boxShadow: '0 8px 32px rgba(0,0,0,0.12)', border: '1px solid #e2e8f0' }}>
             {MAP.map((row, ry) => row.map((t, rx) => <OfficeTile key={`${rx}-${ry}`} type={t} x={rx} y={ry} />))}
-            {ROOMS.map((r, i) => <div key={i} style={{ position: 'absolute', left: (r.x + 0.3) * TILE, top: (r.y - 0.05) * TILE, fontSize: 8, fontWeight: 700, color: `${r.color}55`, textTransform: 'uppercase', letterSpacing: '0.12em', whiteSpace: 'nowrap', pointerEvents: 'none', fontFamily: "'JetBrains Mono',monospace" }}>{r.icon} {r.label}</div>)}
+
+            {/* Room Labels */}
+            {ROOMS.map((r, i) => (
+              <div key={i} style={{
+                position: 'absolute',
+                left: (r.x1 + 0.5) * TILE,
+                top: (r.y1 + 0.5) * TILE,
+                background: 'rgba(255,255,255,0.95)',
+                border: `2px solid ${r.color}`,
+                borderRadius: 8,
+                padding: '4px 10px',
+                fontSize: 10,
+                fontWeight: 700,
+                color: r.color,
+                whiteSpace: 'nowrap',
+                pointerEvents: 'none',
+                fontFamily: "'Inter', sans-serif",
+                boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                zIndex: 5
+              }}>
+                {r.label}
+              </div>
+            ))}
 
             <svg style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} width={mapW} height={mapH}>
-              <rect x={(player.x - PROXIMITY_RANGE) * TILE} y={(player.y - PROXIMITY_RANGE) * TILE} width={(PROXIMITY_RANGE * 2 + 1) * TILE} height={(PROXIMITY_RANGE * 2 + 1) * TILE} fill={T.accentDim} stroke={T.accent} strokeWidth={0.5} strokeDasharray="6 4" rx={6} opacity={0.25} />
+              <rect x={(player.x - PROXIMITY_RANGE) * TILE} y={(player.y - PROXIMITY_RANGE) * TILE} width={(PROXIMITY_RANGE * 2 + 1) * TILE} height={(PROXIMITY_RANGE * 2 + 1) * TILE} fill={T.accentDim} stroke={T.accent} strokeWidth={1} strokeDasharray="6 4" rx={8} opacity={0.4} />
               {peersArr.map(c => <MapAvatar key={c.id} person={c} isPlayer={false} isNearby={dist(player, c) <= PROXIMITY_RANGE} isVideo={dist(player, c) <= VIDEO_RANGE} isSpeaking={speakingUsers.has(c.id)} isInCall={!!callPeers[c.id]} onClick={() => setShowProfile(c)} reaction={reactions[c.id]} />)}
               <MapAvatar person={player} isPlayer={true} isNearby={false} isVideo={false} isSpeaking={speakingUsers.has(user.id)} isInCall={callState === 'active'} reaction={reactions[user.id]} />
             </svg>
@@ -651,26 +673,28 @@ export default function App() {
       </div>
 
       {/* INCOMING CALL MODAL */}
-      {incomingCall && callState === 'ringing' && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(10px)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'fadeIn 0.2s ease' }}>
-          <style>{`
+      {
+        incomingCall && callState === 'ringing' && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(10px)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'fadeIn 0.2s ease' }}>
+            <style>{`
             @keyframes ringPulse { 0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(53,31,255,0.4); } 50% { transform: scale(1.05); box-shadow: 0 0 0 20px rgba(53,31,255,0); } }
             @keyframes phoneBounce { 0%, 100% { transform: rotate(-10deg); } 50% { transform: rotate(10deg); } }
           `}</style>
-          <div style={{ width: 340, background: `linear-gradient(180deg, ${T.surface} 0%, ${T.bg} 100%)`, borderRadius: 24, border: `2px solid ${T.accent}55`, overflow: 'hidden', boxShadow: `0 30px 80px rgba(0,0,0,0.7), 0 0 60px ${T.accent}22`, textAlign: 'center', padding: '36px 28px 28px', animation: 'ringPulse 1.5s ease-in-out infinite' }}>
-            <div style={{ width: 80, height: 80, borderRadius: '50%', background: `linear-gradient(135deg, ${T.accent}, ${T.accentLight})`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', boxShadow: `0 8px 30px ${T.accentGlow}` }}>
-              <span style={{ fontSize: 36, animation: 'phoneBounce 0.5s ease-in-out infinite' }}>📞</span>
-            </div>
-            <div style={{ fontSize: 20, fontWeight: 800, color: T.text, fontFamily: "'Inter', sans-serif", marginBottom: 4 }}>{incomingCall.fromName}</div>
-            <div style={{ fontSize: 13, color: T.textMuted, fontFamily: "'JetBrains Mono',monospace" }}>está te ligando...</div>
-            <div style={{ fontSize: 11, color: T.textDim, fontFamily: "'JetBrains Mono',monospace", marginTop: 8 }}>📹 Chamada de vídeo</div>
-            <div style={{ display: 'flex', gap: 14, marginTop: 28, justifyContent: 'center' }}>
-              <button onClick={declineCall} style={{ padding: '14px 32px', borderRadius: 16, border: 'none', background: T.danger, color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: "'Inter', sans-serif", boxShadow: `0 4px 20px ${T.danger}44`, transition: 'transform 0.15s' }} onMouseOver={e => e.target.style.transform = 'scale(1.05)'} onMouseOut={e => e.target.style.transform = 'scale(1)'}>✕ Recusar</button>
-              <button onClick={acceptCall} style={{ padding: '14px 32px', borderRadius: 16, border: 'none', background: `linear-gradient(135deg, ${T.accent}, ${T.accentLight})`, color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: "'Inter', sans-serif", boxShadow: `0 4px 20px ${T.accentGlow}`, transition: 'transform 0.15s' }} onMouseOver={e => e.target.style.transform = 'scale(1.05)'} onMouseOut={e => e.target.style.transform = 'scale(1)'}>✓ Atender</button>
+            <div style={{ width: 340, background: `linear-gradient(180deg, ${T.surface} 0%, ${T.bg} 100%)`, borderRadius: 24, border: `2px solid ${T.accent}55`, overflow: 'hidden', boxShadow: `0 30px 80px rgba(0,0,0,0.7), 0 0 60px ${T.accent}22`, textAlign: 'center', padding: '36px 28px 28px', animation: 'ringPulse 1.5s ease-in-out infinite' }}>
+              <div style={{ width: 80, height: 80, borderRadius: '50%', background: `linear-gradient(135deg, ${T.accent}, ${T.accentLight})`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', boxShadow: `0 8px 30px ${T.accentGlow}` }}>
+                <span style={{ fontSize: 36, animation: 'phoneBounce 0.5s ease-in-out infinite' }}>📞</span>
+              </div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: T.text, fontFamily: "'Inter', sans-serif", marginBottom: 4 }}>{incomingCall.fromName}</div>
+              <div style={{ fontSize: 13, color: T.textMuted, fontFamily: "'JetBrains Mono',monospace" }}>está te ligando...</div>
+              <div style={{ fontSize: 11, color: T.textDim, fontFamily: "'JetBrains Mono',monospace", marginTop: 8 }}>📹 Chamada de vídeo</div>
+              <div style={{ display: 'flex', gap: 14, marginTop: 28, justifyContent: 'center' }}>
+                <button onClick={declineCall} style={{ padding: '14px 32px', borderRadius: 16, border: 'none', background: T.danger, color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: "'Inter', sans-serif", boxShadow: `0 4px 20px ${T.danger}44`, transition: 'transform 0.15s' }} onMouseOver={e => e.target.style.transform = 'scale(1.05)'} onMouseOut={e => e.target.style.transform = 'scale(1)'}>✕ Recusar</button>
+                <button onClick={acceptCall} style={{ padding: '14px 32px', borderRadius: 16, border: 'none', background: `linear-gradient(135deg, ${T.accent}, ${T.accentLight})`, color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: "'Inter', sans-serif", boxShadow: `0 4px 20px ${T.accentGlow}`, transition: 'transform 0.15s' }} onMouseOver={e => e.target.style.transform = 'scale(1.05)'} onMouseOut={e => e.target.style.transform = 'scale(1)'}>✓ Atender</button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       {showAvatarEditor && <AvatarEditor currentPhoto={player.avatar_url} currentEmoji={player.emoji} onSave={handleAvatarSave} onClose={() => setShowAvatarEditor(false)} />}
 
@@ -682,6 +706,6 @@ export default function App() {
         currentAudioOutput={selectedDevices.audioOutput}
         currentVideoInput={selectedDevices.videoInput}
       />
-    </div>
+    </div >
   )
 }
