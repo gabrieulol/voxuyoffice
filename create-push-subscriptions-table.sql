@@ -16,8 +16,8 @@ ALTER TABLE push_subscriptions ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can manage their own push subscription"
   ON push_subscriptions
   FOR ALL
-  USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
+  USING (user_id = auth.uid()::uuid)
+  WITH CHECK (user_id = auth.uid()::uuid);
 
 -- Index for faster lookups
 CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user_id ON push_subscriptions(user_id);

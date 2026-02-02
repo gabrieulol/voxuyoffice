@@ -7,7 +7,7 @@ import { supabase } from './supabase'
 
 // VAPID public key - Generate yours at https://vapidkeys.com/
 // You'll need to set the private key in your Supabase Edge Function
-const VAPID_PUBLIC_KEY = 'YOUR_VAPID_PUBLIC_KEY_HERE'
+const VAPID_PUBLIC_KEY = 'BK2GYySvYUzC4J99R_A75DpZCf3q--jITPd4ienMZKeqzj4P0gzpCItnrzb06qNry9Fzns8alRlmjXT04s7bbPQ'
 
 function urlBase64ToUint8Array(base64String) {
     const padding = '='.repeat((4 - base64String.length % 4) % 4)
