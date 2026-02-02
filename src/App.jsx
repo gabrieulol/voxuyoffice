@@ -71,29 +71,29 @@ function ChatPanel({ messages, onSend, nearbyNames, activeChannel, onChannelChan
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: T.bg }}>
       <div style={{ display: 'flex', gap: 4, padding: '8px 10px', borderBottom: `1px solid ${T.border}`, overflowX: 'auto' }}>
         {channels.map(ch => (
-          <button key={ch.id} onClick={() => onChannelChange(ch.id)} style={{ padding: '4px 10px', borderRadius: 8, border: activeChannel === ch.id ? `1px solid ${T.accent}` : '1px solid transparent', background: activeChannel === ch.id ? T.accentDim : 'transparent', color: activeChannel === ch.id ? T.accent : T.textDim, fontSize: 10, fontWeight: 700, cursor: 'pointer', fontFamily: "'JetBrains Mono',monospace", whiteSpace: 'nowrap' }}>
+          <button key={ch.id} onClick={() => onChannelChange(ch.id)} style={{ padding: '5px 12px', borderRadius: 16, border: activeChannel === ch.id ? `1px solid ${T.accent}` : '1px solid transparent', background: activeChannel === ch.id ? T.accentDim : 'transparent', color: activeChannel === ch.id ? T.accent : T.textDim, fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: T.fontMain, whiteSpace: 'nowrap' }}>
             {ch.icon} {ch.label}
           </button>
         ))}
       </div>
       {nearbyNames.length > 0 && activeChannel === 'proximity' && (
-        <div style={{ padding: '6px 12px', background: T.accentDim, fontSize: 10, color: T.accent, fontFamily: "'JetBrains Mono',monospace", borderBottom: `1px solid ${T.border}` }}>
+        <div style={{ padding: '6px 12px', background: T.accentDim, fontSize: 11, color: T.accent, fontFamily: T.fontMain, borderBottom: `1px solid ${T.border}`, fontWeight: 500 }}>
           ● Próximos: {nearbyNames.join(', ')}
         </div>
       )}
-      <div ref={listRef} style={{ flex: 1, overflowY: 'auto', padding: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {filtered.length === 0 && <div style={{ textAlign: 'center', color: T.textDim, fontSize: 12, fontFamily: "'JetBrains Mono',monospace", marginTop: 40 }}><div style={{ fontSize: 24, marginBottom: 8, opacity: 0.4 }}>◇</div>{activeChannel === 'proximity' ? 'Ande até alguém' : 'Sem mensagens'}</div>}
+      <div ref={listRef} style={{ flex: 1, overflowY: 'auto', padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {filtered.length === 0 && <div style={{ textAlign: 'center', color: T.textDim, fontSize: 13, fontFamily: T.fontMain, marginTop: 40 }}><div style={{ fontSize: 24, marginBottom: 8, opacity: 0.4 }}>◇</div>{activeChannel === 'proximity' ? 'Ande até alguém' : 'Sem mensagens'}</div>}
         {filtered.map((m, i) => (
           <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: m.isMe ? 'flex-end' : 'flex-start' }}>
-            {!m.isMe && <span style={{ fontSize: 9, color: T.textDim, marginBottom: 1, fontFamily: "'JetBrains Mono',monospace", fontWeight: 600 }}>{m.sender}</span>}
-            <div style={{ background: m.isMe ? '#1a2a1a' : '#1e1e24', color: m.isMe ? T.accent : T.text, padding: '7px 12px', borderRadius: m.isMe ? '12px 12px 3px 12px' : '12px 12px 12px 3px', maxWidth: '85%', fontSize: 12, fontFamily: "'JetBrains Mono',monospace", lineHeight: 1.5, wordBreak: 'break-word', border: m.isMe ? `1px solid ${T.accent}22` : `1px solid ${T.border}` }}>{m.text}</div>
-            <span style={{ fontSize: 8, color: T.textDim, marginTop: 1, fontFamily: "'JetBrains Mono',monospace" }}>{m.time}</span>
+            {!m.isMe && <span style={{ fontSize: 10, color: T.textDim, marginBottom: 2, fontFamily: T.fontMain, fontWeight: 600 }}>{m.sender}</span>}
+            <div style={{ background: m.isMe ? '#1a2a1a' : '#1e1e24', color: m.isMe ? T.accent : T.text, padding: '10px 16px', borderRadius: m.isMe ? '20px 20px 6px 20px' : '20px 20px 20px 6px', maxWidth: '85%', fontSize: 13, fontFamily: T.fontMain, lineHeight: 1.5, wordBreak: 'break-word', border: m.isMe ? `1px solid ${T.accent}22` : `1px solid ${T.border}`, boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>{m.text}</div>
+            <span style={{ fontSize: 9, color: T.textDim, marginTop: 2, fontFamily: T.fontMono }}>{m.time}</span>
           </div>
         ))}
       </div>
-      <div style={{ padding: 10, borderTop: `1px solid ${T.border}`, display: 'flex', gap: 8 }}>
-        <input type="text" placeholder="Mensagem..." value={text} onChange={e => setText(e.target.value)} onKeyDown={e => e.key === 'Enter' && send()} style={{ flex: 1, padding: '9px 14px', border: `1px solid ${T.border}`, borderRadius: 10, outline: 'none', fontFamily: "'JetBrains Mono',monospace", fontSize: 11, background: T.surface, color: T.text }} onFocus={e => e.target.style.borderColor = T.accent} onBlur={e => e.target.style.borderColor = T.border} />
-        <button onClick={send} style={{ width: 36, height: 36, borderRadius: 10, border: 'none', background: text.trim() ? T.accent : T.borderLight, color: text.trim() ? T.bg : T.textDim, fontSize: 14, cursor: text.trim() ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>↑</button>
+      <div style={{ padding: 12, borderTop: `1px solid ${T.border}`, display: 'flex', gap: 8 }}>
+        <input type="text" placeholder="Mensagem..." value={text} onChange={e => setText(e.target.value)} onKeyDown={e => e.key === 'Enter' && send()} style={{ flex: 1, padding: '12px 18px', border: `1px solid ${T.border}`, borderRadius: 20, outline: 'none', fontFamily: T.fontMain, fontSize: 13, background: T.surface, color: T.text }} onFocus={e => e.target.style.borderColor = T.accent} onBlur={e => e.target.style.borderColor = T.border} />
+        <button onClick={send} style={{ width: 40, height: 40, borderRadius: 20, border: 'none', background: text.trim() ? T.accent : T.borderLight, color: text.trim() ? T.bg : T.textDim, fontSize: 15, cursor: text.trim() ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>↑</button>
       </div>
     </div>
   )
@@ -107,32 +107,32 @@ function PeopleList({ peersArr, player, onSelect }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: T.bg }}>
-      <div style={{ padding: 10, borderBottom: `1px solid ${T.border}` }}><input type="text" placeholder="Buscar..." value={search} onChange={e => setSearch(e.target.value)} style={{ width: '100%', padding: '8px 12px', border: `1px solid ${T.border}`, borderRadius: 8, outline: 'none', fontFamily: "'JetBrains Mono',monospace", fontSize: 10, background: T.surface, color: T.text }} /></div>
+      <div style={{ padding: 10, borderBottom: `1px solid ${T.border}` }}><input type="text" placeholder="Buscar..." value={search} onChange={e => setSearch(e.target.value)} style={{ width: '100%', padding: '10px 14px', border: `1px solid ${T.border}`, borderRadius: 14, outline: 'none', fontFamily: T.fontMain, fontSize: 12, background: T.surface, color: T.text }} /></div>
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {Object.entries(STATUS).map(([key, cfg]) => grouped[key]?.length > 0 && (
           <div key={key}>
-            <div style={{ padding: '10px 12px 4px', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: T.textDim, fontFamily: "'JetBrains Mono',monospace" }}>
+            <div style={{ padding: '10px 12px 4px', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: T.textDim, fontFamily: T.fontMain }}>
               <span style={{ color: cfg.color }}>{cfg.icon}</span> {cfg.label} ({grouped[key].length})
             </div>
             {grouped[key].map(c => {
               const near = dist(player, c) <= PROXIMITY_RANGE
               const [cc1, cc2] = PALETTES[(c.avatar_idx || 0) % PALETTES.length]
               return (
-                <div key={c.id} onClick={() => onSelect(c)} style={{ padding: '7px 12px', display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', background: near ? T.accentDim : 'transparent', borderLeft: near ? `2px solid ${T.accent}` : '2px solid transparent', transition: 'all 0.15s' }} onMouseEnter={e => { if (!near) e.currentTarget.style.background = T.surface }} onMouseLeave={e => { if (!near) e.currentTarget.style.background = 'transparent' }}>
-                  <div style={{ width: 30, height: 30, borderRadius: '50%', background: `linear-gradient(135deg,${cc1},${cc2})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0, overflow: 'hidden', border: `1.5px solid ${cfg.color}44` }}>
+                <div key={c.id} onClick={() => onSelect(c)} style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', background: near ? T.accentDim : 'transparent', borderLeft: near ? `3px solid ${T.accent}` : '3px solid transparent', transition: 'all 0.15s', borderRadius: 8, margin: '2px 4px' }} onMouseEnter={e => { if (!near) e.currentTarget.style.background = T.surface }} onMouseLeave={e => { if (!near) e.currentTarget.style.background = 'transparent' }}>
+                  <div style={{ width: 34, height: 34, borderRadius: '50%', background: `linear-gradient(135deg,${cc1},${cc2})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, flexShrink: 0, overflow: 'hidden', border: `2px solid ${cfg.color}44` }}>
                     {c.avatar_url ? <img src={c.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (c.emoji || '😊')}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: T.text, fontFamily: "'JetBrains Mono',monospace" }}>{(c.display_name || 'Anon').split(' ')[0]}</div>
-                    <div style={{ fontSize: 9, color: T.textDim, fontFamily: "'JetBrains Mono',monospace", whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.activity || c.role || 'Online'}</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: T.text, fontFamily: T.fontMain }}>{(c.display_name || 'Anon').split(' ')[0]}</div>
+                    <div style={{ fontSize: 11, color: T.textDim, fontFamily: T.fontMain, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.activity || c.role || 'Online'}</div>
                   </div>
-                  {near && <div style={{ fontSize: 8, padding: '2px 6px', background: T.accent, color: T.bg, borderRadius: 6, fontWeight: 700, fontFamily: "'JetBrains Mono',monospace" }}>PERTO</div>}
+                  {near && <div style={{ fontSize: 9, padding: '3px 8px', background: T.accent, color: T.bg, borderRadius: 10, fontWeight: 700, fontFamily: T.fontMain }}>PERTO</div>}
                 </div>
               )
             })}
           </div>
         ))}
-        {peersArr.length === 0 && <div style={{ textAlign: 'center', padding: 40, color: T.textDim, fontSize: 11, fontFamily: "'JetBrains Mono',monospace" }}>Ninguém online ainda.<br />Convide seu time! 🚀</div>}
+        {peersArr.length === 0 && <div style={{ textAlign: 'center', padding: 40, color: T.textDim, fontSize: 13, fontFamily: T.fontMain }}>Ninguém online ainda.<br />Convide seu time! 🚀</div>}
       </div>
     </div>
   )
@@ -149,36 +149,36 @@ function AvatarEditor({ currentPhoto, currentEmoji, onSave, onClose }) {
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'fadeIn 0.2s ease' }}>
-      <div style={{ width: 380, background: T.surface, borderRadius: 20, border: `1px solid ${T.border}`, overflow: 'hidden', boxShadow: '0 30px 80px rgba(0,0,0,0.6)' }}>
-        <div style={{ padding: '16px 20px', borderBottom: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}><span style={{ fontSize: 14, fontWeight: 700, color: T.text, fontFamily: "'JetBrains Mono',monospace" }}>Editar Avatar</span><button onClick={onClose} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${T.border}`, background: 'transparent', color: T.textMuted, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button></div>
+      <div style={{ width: 380, background: T.surface, borderRadius: 28, border: `1px solid ${T.border}`, overflow: 'hidden', boxShadow: '0 30px 80px rgba(0,0,0,0.6)' }}>
+        <div style={{ padding: '18px 22px', borderBottom: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}><span style={{ fontSize: 16, fontWeight: 700, color: T.text, fontFamily: T.fontMain }}>Editar Avatar</span><button onClick={onClose} style={{ width: 30, height: 30, borderRadius: 12, border: `1px solid ${T.border}`, background: 'transparent', color: T.textMuted, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button></div>
         <div style={{ padding: 24, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 88, height: 88, borderRadius: '50%', border: `3px solid ${T.accent}`, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg,#6366f1,#818cf8)', fontSize: 40, boxShadow: `0 0 20px ${T.accent}33` }}>
+          <div style={{ width: 92, height: 92, borderRadius: '50%', border: `3px solid ${T.accent}`, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg,#6366f1,#818cf8)', fontSize: 42, boxShadow: `0 0 24px ${T.accent}33` }}>
             {tab === 'photo' && photo ? <img src={photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span>{emoji}</span>}
           </div>
         </div>
-        <div style={{ display: 'flex', margin: '0 20px', borderRadius: 10, overflow: 'hidden', border: `1px solid ${T.border}` }}>
+        <div style={{ display: 'flex', margin: '0 20px', borderRadius: 14, overflow: 'hidden', border: `1px solid ${T.border}` }}>
           {[{ k: 'photo', l: '📷 Foto' }, { k: 'emoji', l: '😊 Emoji' }].map(t => (
-            <button key={t.k} onClick={() => setTab(t.k)} style={{ flex: 1, padding: '9px 0', border: 'none', background: tab === t.k ? T.accentDim : 'transparent', color: tab === t.k ? T.accent : T.textDim, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: "'JetBrains Mono',monospace" }}>{t.l}</button>
+            <button key={t.k} onClick={() => setTab(t.k)} style={{ flex: 1, padding: '10px 0', border: 'none', background: tab === t.k ? T.accentDim : 'transparent', color: tab === t.k ? T.accent : T.textDim, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: T.fontMain }}>{t.l}</button>
           ))}
         </div>
         <div style={{ padding: 20 }}>
           {tab === 'photo' ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
               <input ref={fileRef} type="file" accept="image/*" onChange={handleFile} style={{ display: 'none' }} />
-              <button onClick={() => fileRef.current?.click()} style={{ width: '100%', padding: '16px 0', borderRadius: 12, border: `2px dashed ${T.borderLight}`, background: 'transparent', color: T.textMuted, fontSize: 12, cursor: 'pointer', fontFamily: "'JetBrains Mono',monospace" }}>📷 {photo ? 'Trocar foto' : 'Escolher foto'}</button>
-              {photo && <button onClick={() => setPhoto(null)} style={{ padding: '6px 14px', borderRadius: 8, border: `1px solid ${T.danger}33`, background: 'transparent', color: T.danger, fontSize: 10, cursor: 'pointer', fontFamily: "'JetBrains Mono',monospace" }}>Remover foto</button>}
+              <button onClick={() => fileRef.current?.click()} style={{ width: '100%', padding: '18px 0', borderRadius: 16, border: `2px dashed ${T.borderLight}`, background: 'transparent', color: T.textMuted, fontSize: 13, cursor: 'pointer', fontFamily: T.fontMain, fontWeight: 500 }}>📷 {photo ? 'Trocar foto' : 'Escolher foto'}</button>
+              {photo && <button onClick={() => setPhoto(null)} style={{ padding: '8px 16px', borderRadius: 12, border: `1px solid ${T.danger}33`, background: 'transparent', color: T.danger, fontSize: 11, cursor: 'pointer', fontFamily: T.fontMain, fontWeight: 600 }}>Remover foto</button>}
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: 6 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: 8 }}>
               {emojis.map(e => (
-                <button key={e} onClick={() => setEmoji(e)} style={{ width: '100%', aspectRatio: '1', borderRadius: 10, border: emoji === e ? `2px solid ${T.accent}` : `1px solid ${T.border}`, background: emoji === e ? T.accentDim : 'transparent', fontSize: 20, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{e}</button>
+                <button key={e} onClick={() => setEmoji(e)} style={{ width: '100%', aspectRatio: '1', borderRadius: 14, border: emoji === e ? `2px solid ${T.accent}` : `1px solid ${T.border}`, background: emoji === e ? T.accentDim : 'transparent', fontSize: 22, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{e}</button>
               ))}
             </div>
           )}
         </div>
-        <div style={{ padding: '12px 20px 20px', display: 'flex', gap: 10 }}>
-          <button onClick={onClose} style={{ flex: 1, padding: '11px 0', borderRadius: 10, border: `1px solid ${T.border}`, background: 'transparent', color: T.textMuted, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: "'JetBrains Mono',monospace" }}>Cancelar</button>
-          <button onClick={() => onSave({ photo: tab === 'photo' ? photo : null, emoji: tab === 'emoji' ? emoji : currentEmoji })} style={{ flex: 1, padding: '11px 0', borderRadius: 10, border: 'none', background: T.accent, color: T.bg, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: "'JetBrains Mono',monospace" }}>Salvar</button>
+        <div style={{ padding: '14px 22px 22px', display: 'flex', gap: 12 }}>
+          <button onClick={onClose} style={{ flex: 1, padding: '12px 0', borderRadius: 16, border: `1px solid ${T.border}`, background: 'transparent', color: T.textMuted, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: T.fontMain }}>Cancelar</button>
+          <button onClick={() => onSave({ photo: tab === 'photo' ? photo : null, emoji: tab === 'emoji' ? emoji : currentEmoji })} style={{ flex: 1, padding: '12px 0', borderRadius: 16, border: 'none', background: T.accent, color: T.bg, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: T.fontMain }}>Salvar</button>
         </div>
       </div>
     </div>
@@ -371,17 +371,15 @@ export default function App() {
   }
 
   // ─── LOADING / AUTH ───
-  if (loading) return <div style={{ width: '100vw', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: T.bg, color: T.accent, fontFamily: "'JetBrains Mono',monospace", fontSize: 14 }}>Carregando...</div>
+  if (loading) return <div style={{ width: '100vw', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: T.bg, color: T.accent, fontFamily: T.fontMain, fontSize: 16, fontWeight: 600 }}>Carregando...</div>
   if (!user) return <AuthScreen onAuth={u => { setUser(u); loadProfile(u.id) }} />
-  if (!player) return <div style={{ width: '100vw', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: T.bg, color: T.accent, fontFamily: "'JetBrains Mono',monospace", fontSize: 14 }}>Preparando escritório...</div>
+  if (!player) return <div style={{ width: '100vw', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: T.bg, color: T.accent, fontFamily: T.fontMain, fontSize: 16, fontWeight: 600 }}>Preparando escritório...</div>
 
   const mapW = MAP_COLS * TILE, mapH = MAP_ROWS * TILE
 
   return (
-    <div style={{ width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column', background: T.bg, fontFamily: "'Inter', 'JetBrains Mono', sans-serif", overflow: 'hidden', color: T.text }}>
+    <div style={{ width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column', background: T.bg, fontFamily: T.fontMain, overflow: 'hidden', color: T.text }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
         @keyframes fadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
         @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
         @keyframes glow{0%,100%{box-shadow:0 0 20px rgba(53,31,255,0.2)}50%{box-shadow:0 0 30px rgba(53,31,255,0.4)}}
@@ -393,30 +391,30 @@ export default function App() {
       `}</style>
 
       {/* HEADER */}
-      <header style={{ height: 52, display: 'flex', alignItems: 'center', padding: '0 18px', borderBottom: `1px solid ${T.border}`, background: `linear-gradient(180deg, ${T.surface} 0%, ${T.bg} 100%)`, gap: 12, flexShrink: 0, zIndex: 20 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 34, height: 34, borderRadius: 10, background: `linear-gradient(135deg, ${T.accent}, ${T.accentLight})`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 4px 16px ${T.accentGlow}` }}>
+      <header style={{ height: 56, display: 'flex', alignItems: 'center', padding: '0 20px', borderBottom: `1px solid ${T.border}`, background: `linear-gradient(180deg, ${T.surface} 0%, ${T.bg} 100%)`, gap: 14, flexShrink: 0, zIndex: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ width: 38, height: 38, borderRadius: 14, background: `linear-gradient(135deg, ${T.accent}, ${T.accentLight})`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 4px 16px ${T.accentGlow}` }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
             </svg>
           </div>
           <div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: T.text, lineHeight: 1.2, display: 'flex', alignItems: 'center', gap: 8 }}>voxuy<span style={{ color: T.accent }}>.office</span><span style={{ fontSize: 8, padding: '3px 8px', background: `linear-gradient(135deg, ${T.accent}, ${T.accentLight})`, color: '#fff', borderRadius: 6, fontWeight: 700, letterSpacing: '0.05em' }}>LIVE</span></div>
-            <div style={{ fontSize: 10, color: T.textDim, fontFamily: "'JetBrains Mono', monospace" }}>{currentRoom ? `${currentRoom.icon} ${currentRoom.label}` : '...'}</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: T.text, lineHeight: 1.2, display: 'flex', alignItems: 'center', gap: 8, fontFamily: T.fontMain }}>voxuy<span style={{ color: T.accent }}>.office</span><span style={{ fontSize: 9, padding: '3px 10px', background: `linear-gradient(135deg, ${T.accent}, ${T.accentLight})`, color: '#fff', borderRadius: 8, fontWeight: 700, letterSpacing: '0.05em' }}>LIVE</span></div>
+            <div style={{ fontSize: 11, color: T.textDim, fontFamily: T.fontMono }}>{currentRoom ? `${currentRoom.icon} ${currentRoom.label}` : '...'}</div>
           </div>
         </div>
         <div style={{ flex: 1 }} />
-        <button onClick={() => setShowAvatarEditor(true)} style={{ width: 36, height: 36, borderRadius: '50%', border: `2px solid ${T.accent}44`, background: `linear-gradient(135deg, ${T.accent}, ${T.accentLight})`, cursor: 'pointer', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0, boxShadow: `0 4px 12px ${T.accentGlow}`, transition: 'all 0.2s ease' }} title="Editar avatar">
+        <button onClick={() => setShowAvatarEditor(true)} style={{ width: 38, height: 38, borderRadius: '50%', border: `2px solid ${T.accent}44`, background: `linear-gradient(135deg, ${T.accent}, ${T.accentLight})`, cursor: 'pointer', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, flexShrink: 0, boxShadow: `0 4px 12px ${T.accentGlow}`, transition: 'all 0.2s ease' }} title="Editar avatar">
           {player.avatar_url ? <img src={player.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : player.emoji}
         </button>
-        <div style={{ display: 'flex', gap: 4 }}>
+        <div style={{ display: 'flex', gap: 5 }}>
           {Object.entries(STATUS).map(([k, v]) => (
-            <button key={k} onClick={() => handleStatusChange(k)} title={v.label} style={{ width: 28, height: 28, borderRadius: 8, border: player.status === k ? `2px solid ${v.color}` : `1px solid ${T.border}`, background: player.status === k ? `${v.color}18` : 'transparent', color: v.color, fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s ease' }}>{v.icon}</button>
+            <button key={k} onClick={() => handleStatusChange(k)} title={v.label} style={{ width: 30, height: 30, borderRadius: 10, border: player.status === k ? `2px solid ${v.color}` : `1px solid ${T.border}`, background: player.status === k ? `${v.color}18` : 'transparent', color: v.color, fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s ease' }}>{v.icon}</button>
           ))}
         </div>
-        <div style={{ width: 1, height: 20, background: T.border }} />
-        <div style={{ fontSize: 11, color: T.textMuted, display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: T.accent, animation: 'pulse 2s infinite' }} /><b style={{ color: T.text }}>{peersArr.length + 1}</b> online</div>
-        <button onClick={handleLogout} style={{ padding: '6px 12px', borderRadius: 8, border: `1px solid ${T.border}`, background: 'transparent', color: T.textMuted, fontSize: 10, cursor: 'pointer', fontFamily: "'Inter', sans-serif", fontWeight: 600, transition: 'all 0.15s ease' }} onMouseOver={e => e.target.style.borderColor = T.danger} onMouseOut={e => e.target.style.borderColor = T.border} title="Sair">Sair</button>
+        <div style={{ width: 1, height: 22, background: T.border }} />
+        <div style={{ fontSize: 12, color: T.textMuted, display: 'flex', alignItems: 'center', gap: 6, fontFamily: T.fontMain }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: T.accent, animation: 'pulse 2s infinite' }} /><b style={{ color: T.text }}>{peersArr.length + 1}</b> online</div>
+        <button onClick={handleLogout} style={{ padding: '7px 14px', borderRadius: 12, border: `1px solid ${T.border}`, background: 'transparent', color: T.textMuted, fontSize: 11, cursor: 'pointer', fontFamily: T.fontMain, fontWeight: 600, transition: 'all 0.15s ease' }} onMouseOver={e => e.target.style.borderColor = T.danger} onMouseOut={e => e.target.style.borderColor = T.border} title="Sair">Sair</button>
       </header>
 
       {/* MAIN */}
@@ -452,51 +450,51 @@ export default function App() {
               screenStream={screenStream}
             />
 
-            {callError && <div style={{ position: 'absolute', top: 48, left: '50%', transform: 'translateX(-50%)', background: `${T.danger}22`, color: T.danger, padding: '7px 16px', borderRadius: 8, fontSize: 10, fontWeight: 600, backdropFilter: 'blur(8px)', zIndex: 55, animation: 'fadeIn 0.2s ease', whiteSpace: 'nowrap', border: `1px solid ${T.danger}33`, fontFamily: "'JetBrains Mono',monospace" }}>{callError}<button onClick={() => setCallError(null)} style={{ marginLeft: 10, background: 'none', border: 'none', color: T.danger, cursor: 'pointer', fontSize: 10 }}>✕</button></div>}
+            {callError && <div style={{ position: 'absolute', top: 48, left: '50%', transform: 'translateX(-50%)', background: `${T.danger}22`, color: T.danger, padding: '9px 18px', borderRadius: 14, fontSize: 12, fontWeight: 600, backdropFilter: 'blur(8px)', zIndex: 55, animation: 'fadeIn 0.2s ease', whiteSpace: 'nowrap', border: `1px solid ${T.danger}33`, fontFamily: T.fontMain }}>{callError}<button onClick={() => setCallError(null)} style={{ marginLeft: 12, background: 'none', border: 'none', color: T.danger, cursor: 'pointer', fontSize: 12 }}>✕</button></div>}
 
-            {notification && <div style={{ position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.9)', color: T.accent, padding: '7px 16px', borderRadius: 8, fontSize: 11, fontWeight: 600, backdropFilter: 'blur(8px)', zIndex: 50, animation: 'fadeIn 0.2s ease', whiteSpace: 'nowrap', border: `1px solid ${T.accent}33` }}>{notification}</div>}
+            {notification && <div style={{ position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.9)', color: T.accent, padding: '9px 18px', borderRadius: 14, fontSize: 13, fontWeight: 600, backdropFilter: 'blur(8px)', zIndex: 50, animation: 'fadeIn 0.2s ease', whiteSpace: 'nowrap', border: `1px solid ${T.accent}33`, fontFamily: T.fontMain }}>{notification}</div>}
             <Minimap player={player} peersArr={peersArr} />
 
             {/* Toolbar */}
-            <div style={{ position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 6, background: 'rgba(0,0,0,0.85)', borderRadius: 14, padding: '6px 10px', backdropFilter: 'blur(8px)', border: `1px solid ${T.border}`, zIndex: 40 }}>
+            <div style={{ position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 6, background: 'rgba(0,0,0,0.85)', borderRadius: 20, padding: '8px 12px', backdropFilter: 'blur(10px)', border: `1px solid ${T.border}`, zIndex: 40 }}>
               {callState === 'active' ? (
                 <>
-                  <button onClick={voiceToggleMute} style={{ width: 38, height: 38, borderRadius: 10, border: `1px solid ${voiceMuted ? T.danger + '44' : T.accent + '44'}`, background: voiceMuted ? `${T.danger}15` : `${T.accent}15`, color: T.text, fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title={voiceMuted ? 'Ativar mic' : 'Mutar mic'}>{voiceMuted ? '🔇' : '🎙'}</button>
-                  <button onClick={toggleCamera} style={{ width: 38, height: 38, borderRadius: 10, border: `1px solid ${isCamOff ? T.border : T.accent + '44'}`, background: isCamOff ? 'transparent' : `${T.accent}15`, color: T.text, fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title={isCamOff ? 'Ligar câmera' : 'Desligar câmera'}>{isCamOff ? '📵' : '📹'}</button>
-                  <button onClick={toggleScreenShare} style={{ width: 38, height: 38, borderRadius: 10, border: `1px solid ${isScreenSharing ? T.accent + '44' : T.border}`, background: isScreenSharing ? `${T.accent}15` : 'transparent', color: T.text, fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title={isScreenSharing ? 'Parar compartilhamento' : 'Compartilhar tela'}>💻</button>
-                  <button onClick={handleLeaveCall} style={{ width: 38, height: 38, borderRadius: 10, border: `1px solid ${T.danger}44`, background: `${T.danger}20`, color: T.text, fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Sair da chamada">❌</button>
-                  <div style={{ width: 1, height: 24, background: T.border, alignSelf: 'center' }} />
+                  <button onClick={voiceToggleMute} style={{ width: 40, height: 40, borderRadius: 14, border: `1px solid ${voiceMuted ? T.danger + '44' : T.accent + '44'}`, background: voiceMuted ? `${T.danger}15` : `${T.accent}15`, color: T.text, fontSize: 15, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title={voiceMuted ? 'Ativar mic' : 'Mutar mic'}>{voiceMuted ? '🔇' : '🎙'}</button>
+                  <button onClick={toggleCamera} style={{ width: 40, height: 40, borderRadius: 14, border: `1px solid ${isCamOff ? T.border : T.accent + '44'}`, background: isCamOff ? 'transparent' : `${T.accent}15`, color: T.text, fontSize: 15, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title={isCamOff ? 'Ligar câmera' : 'Desligar câmera'}>{isCamOff ? '📵' : '📹'}</button>
+                  <button onClick={toggleScreenShare} style={{ width: 40, height: 40, borderRadius: 14, border: `1px solid ${isScreenSharing ? T.accent + '44' : T.border}`, background: isScreenSharing ? `${T.accent}15` : 'transparent', color: T.text, fontSize: 15, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title={isScreenSharing ? 'Parar compartilhamento' : 'Compartilhar tela'}>💻</button>
+                  <button onClick={handleLeaveCall} style={{ width: 40, height: 40, borderRadius: 14, border: `1px solid ${T.danger}44`, background: `${T.danger}20`, color: T.text, fontSize: 15, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Sair da chamada">❌</button>
+                  <div style={{ width: 1, height: 26, background: T.border, alignSelf: 'center' }} />
                 </>
               ) : (
-                <button onClick={handleStartCall} disabled={callState === 'joining'} style={{ width: 38, height: 38, borderRadius: 10, border: `1px solid ${T.accent}44`, background: `${T.accent}15`, color: T.text, fontSize: 14, fontWeight: 700, cursor: callState === 'joining' ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: callState === 'joining' ? 0.5 : 1 }} title={currentRoom ? `Entrar em chamada: ${currentRoom.label}` : 'Entre em uma sala para ligar'}>{callState === 'joining' ? '⏳' : '🎧'}</button>
+                <button onClick={handleStartCall} disabled={callState === 'joining'} style={{ width: 40, height: 40, borderRadius: 14, border: `1px solid ${T.accent}44`, background: `${T.accent}15`, color: T.text, fontSize: 15, fontWeight: 700, cursor: callState === 'joining' ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: callState === 'joining' ? 0.5 : 1 }} title={currentRoom ? `Entrar em chamada: ${currentRoom.label}` : 'Entre em uma sala para ligar'}>{callState === 'joining' ? '⏳' : '🎧'}</button>
               )}
-              <button onClick={() => setShowReactions(p => !p)} style={{ width: 38, height: 38, borderRadius: 10, border: `1px solid ${T.border}`, background: 'transparent', color: T.text, fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Reações">😊</button>
-              <button onClick={() => setShowDeviceSettings(true)} style={{ width: 38, height: 38, borderRadius: 10, border: `1px solid ${T.border}`, background: 'transparent', color: T.text, fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Configurações de dispositivo">⚙️</button>
+              <button onClick={() => setShowReactions(p => !p)} style={{ width: 40, height: 40, borderRadius: 14, border: `1px solid ${T.border}`, background: 'transparent', color: T.text, fontSize: 15, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Reações">😊</button>
+              <button onClick={() => setShowDeviceSettings(true)} style={{ width: 40, height: 40, borderRadius: 14, border: `1px solid ${T.border}`, background: 'transparent', color: T.text, fontSize: 15, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Configurações de dispositivo">⚙️</button>
             </div>
 
             {showReactions && (
-              <div style={{ position: 'absolute', bottom: 60, left: '50%', transform: 'translateX(-50%)', background: T.surface, borderRadius: 14, padding: '8px 10px', display: 'flex', gap: 4, border: `1px solid ${T.border}`, boxShadow: '0 8px 30px rgba(0,0,0,0.4)', zIndex: 50, animation: 'fadeIn 0.15s ease' }}>
+              <div style={{ position: 'absolute', bottom: 68, left: '50%', transform: 'translateX(-50%)', background: T.surface, borderRadius: 18, padding: '10px 12px', display: 'flex', gap: 6, border: `1px solid ${T.border}`, boxShadow: '0 8px 30px rgba(0,0,0,0.4)', zIndex: 50, animation: 'fadeIn 0.15s ease' }}>
                 {'👋👍❤️😂🔥🎉👀💡☕🚀'.match(/./gu).map(r => (
-                  <button key={r} onClick={() => { sendReaction(r); setShowReactions(false) }} style={{ width: 34, height: 34, borderRadius: 8, border: 'none', background: 'transparent', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{r}</button>
+                  <button key={r} onClick={() => { sendReaction(r); setShowReactions(false) }} style={{ width: 38, height: 38, borderRadius: 12, border: 'none', background: 'transparent', fontSize: 20, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{r}</button>
                 ))}
               </div>
             )}
 
             {/* Profile card */}
             {showProfile && (
-              <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 300, background: T.surface, border: `1px solid ${T.border}`, borderRadius: 18, overflow: 'hidden', zIndex: 70, boxShadow: '0 20px 60px rgba(0,0,0,0.5)', animation: 'fadeIn 0.2s ease' }}>
+              <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 320, background: T.surface, border: `1px solid ${T.border}`, borderRadius: 24, overflow: 'hidden', zIndex: 70, boxShadow: '0 20px 60px rgba(0,0,0,0.5)', animation: 'fadeIn 0.2s ease' }}>
                 {(() => {
                   const [c1, c2] = PALETTES[(showProfile.avatar_idx || 0) % PALETTES.length]; const st = STATUS[showProfile.status] || STATUS.available; return (<>
-                    <div style={{ height: 60, background: `linear-gradient(135deg,${c1}22,${c2}22)`, position: 'relative' }}><button onClick={() => setShowProfile(null)} style={{ position: 'absolute', top: 10, right: 10, width: 26, height: 26, borderRadius: 8, border: 'none', background: 'rgba(0,0,0,0.3)', color: '#fff', fontSize: 12, cursor: 'pointer' }}>✕</button></div>
-                    <div style={{ padding: '0 20px 20px', marginTop: -28 }}>
-                      <div style={{ width: 56, height: 56, borderRadius: '50%', background: `linear-gradient(135deg,${c1},${c2})`, border: `3px solid ${T.surface}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, marginBottom: 10, overflow: 'hidden' }}>{showProfile.avatar_url ? <img src={showProfile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (showProfile.emoji || '😊')}</div>
-                      <div style={{ fontSize: 16, fontWeight: 700, color: T.text }}>{showProfile.display_name || 'Anon'}</div>
-                      <div style={{ fontSize: 12, color: T.textMuted, marginTop: 2 }}>{showProfile.role || 'Membro'} · {showProfile.team || 'Time'}</div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: st.color }} /><span style={{ fontSize: 11, color: st.color, fontWeight: 600 }}>{st.label}</span></div>
-                      <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-                        <button onClick={() => { if (canWalk(showProfile.x + 1, showProfile.y)) setPlayer(p => ({ ...p, x: showProfile.x + 1, y: showProfile.y })); setShowProfile(null); showNotif(`📍 Indo até ${(showProfile.display_name || '').split(' ')[0]}`) }} style={{ flex: 1, padding: '8px 0', borderRadius: 10, border: `1px solid ${T.borderLight}`, background: 'transparent', color: T.text, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: "'JetBrains Mono',monospace" }}>📍 Ir até</button>
-                        <button onClick={() => { setActiveChannel('proximity'); setRightPanel('chat'); setShowProfile(null) }} style={{ flex: 1, padding: '8px 0', borderRadius: 10, border: `1px solid ${T.borderLight}`, background: 'transparent', color: T.text, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: "'JetBrains Mono',monospace" }}>💬 Msg</button>
-                        <button onClick={() => { handleCallPerson(showProfile); setShowProfile(null) }} disabled={callState === 'active'} style={{ flex: 1, padding: '8px 0', borderRadius: 10, border: `1px solid ${callState === 'active' ? T.textDim + '33' : T.accent + '44'}`, background: callState === 'active' ? 'transparent' : `${T.accent}11`, color: callState === 'active' ? T.textDim : T.accent, fontSize: 11, fontWeight: 700, cursor: callState === 'active' ? 'default' : 'pointer', fontFamily: "'JetBrains Mono',monospace", opacity: callState === 'active' ? 0.5 : 1 }}>📞 Ligar</button>
+                    <div style={{ height: 64, background: `linear-gradient(135deg,${c1}22,${c2}22)`, position: 'relative' }}><button onClick={() => setShowProfile(null)} style={{ position: 'absolute', top: 12, right: 12, width: 28, height: 28, borderRadius: 10, border: 'none', background: 'rgba(0,0,0,0.3)', color: '#fff', fontSize: 13, cursor: 'pointer' }}>✕</button></div>
+                    <div style={{ padding: '0 22px 22px', marginTop: -30 }}>
+                      <div style={{ width: 60, height: 60, borderRadius: '50%', background: `linear-gradient(135deg,${c1},${c2})`, border: `3px solid ${T.surface}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, marginBottom: 12, overflow: 'hidden' }}>{showProfile.avatar_url ? <img src={showProfile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (showProfile.emoji || '😊')}</div>
+                      <div style={{ fontSize: 18, fontWeight: 700, color: T.text, fontFamily: T.fontMain }}>{showProfile.display_name || 'Anon'}</div>
+                      <div style={{ fontSize: 13, color: T.textMuted, marginTop: 3, fontFamily: T.fontMain }}>{showProfile.role || 'Membro'} · {showProfile.team || 'Time'}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 10 }}><span style={{ width: 8, height: 8, borderRadius: '50%', background: st.color }} /><span style={{ fontSize: 12, color: st.color, fontWeight: 600, fontFamily: T.fontMain }}>{st.label}</span></div>
+                      <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
+                        <button onClick={() => { if (canWalk(showProfile.x + 1, showProfile.y)) setPlayer(p => ({ ...p, x: showProfile.x + 1, y: showProfile.y })); setShowProfile(null); showNotif(`📍 Indo até ${(showProfile.display_name || '').split(' ')[0]}`) }} style={{ flex: 1, padding: '10px 0', borderRadius: 14, border: `1px solid ${T.borderLight}`, background: 'transparent', color: T.text, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: T.fontMain }}>📍 Ir até</button>
+                        <button onClick={() => { setActiveChannel('proximity'); setRightPanel('chat'); setShowProfile(null) }} style={{ flex: 1, padding: '10px 0', borderRadius: 14, border: `1px solid ${T.borderLight}`, background: 'transparent', color: T.text, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: T.fontMain }}>💬 Msg</button>
+                        <button onClick={() => { handleCallPerson(showProfile); setShowProfile(null) }} disabled={callState === 'active'} style={{ flex: 1, padding: '10px 0', borderRadius: 14, border: `1px solid ${callState === 'active' ? T.textDim + '33' : T.accent + '44'}`, background: callState === 'active' ? 'transparent' : `${T.accent}11`, color: callState === 'active' ? T.textDim : T.accent, fontSize: 12, fontWeight: 600, cursor: callState === 'active' ? 'default' : 'pointer', fontFamily: T.fontMain, opacity: callState === 'active' ? 0.5 : 1 }}>📞 Ligar</button>
                       </div>
                     </div>
                   </>)
@@ -507,10 +505,10 @@ export default function App() {
         </div>
 
         {/* SIDEBAR */}
-        <div style={{ width: 280, borderLeft: `1px solid ${T.border}`, display: 'flex', flexDirection: 'column', background: T.bg, flexShrink: 0 }}>
+        <div style={{ width: 300, borderLeft: `1px solid ${T.border}`, display: 'flex', flexDirection: 'column', background: T.bg, flexShrink: 0 }}>
           <div style={{ display: 'flex', borderBottom: `1px solid ${T.border}` }}>
             {[{ key: 'chat', label: 'Chat', icon: '◈' }, { key: 'people', label: 'Pessoas', icon: '◉' }].map(t => (
-              <button key={t.key} onClick={() => setRightPanel(t.key)} style={{ flex: 1, padding: '10px 0', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 10, fontWeight: 700, color: rightPanel === t.key ? T.accent : T.textDim, borderBottom: rightPanel === t.key ? `2px solid ${T.accent}` : '2px solid transparent', fontFamily: "'JetBrains Mono',monospace", letterSpacing: '0.06em' }}>{t.icon} {t.label}</button>
+              <button key={t.key} onClick={() => setRightPanel(t.key)} style={{ flex: 1, padding: '12px 0', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: rightPanel === t.key ? T.accent : T.textDim, borderBottom: rightPanel === t.key ? `2px solid ${T.accent}` : '2px solid transparent', fontFamily: T.fontMain, letterSpacing: '0.03em' }}>{t.icon} {t.label}</button>
             ))}
           </div>
           <div style={{ flex: 1, overflow: 'hidden' }}>
@@ -530,16 +528,16 @@ export default function App() {
             @keyframes ringPulse { 0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(53,31,255,0.4); } 50% { transform: scale(1.05); box-shadow: 0 0 0 20px rgba(53,31,255,0); } }
             @keyframes phoneBounce { 0%, 100% { transform: rotate(-10deg); } 50% { transform: rotate(10deg); } }
           `}</style>
-          <div style={{ width: 340, background: `linear-gradient(180deg, ${T.surface} 0%, ${T.bg} 100%)`, borderRadius: 24, border: `2px solid ${T.accent}55`, overflow: 'hidden', boxShadow: `0 30px 80px rgba(0,0,0,0.7), 0 0 60px ${T.accent}22`, textAlign: 'center', padding: '36px 28px 28px', animation: 'ringPulse 1.5s ease-in-out infinite' }}>
-            <div style={{ width: 80, height: 80, borderRadius: '50%', background: `linear-gradient(135deg, ${T.accent}, ${T.accentLight})`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', boxShadow: `0 8px 30px ${T.accentGlow}` }}>
-              <span style={{ fontSize: 36, animation: 'phoneBounce 0.5s ease-in-out infinite' }}>📞</span>
+          <div style={{ width: 360, background: `linear-gradient(180deg, ${T.surface} 0%, ${T.bg} 100%)`, borderRadius: 28, border: `2px solid ${T.accent}55`, overflow: 'hidden', boxShadow: `0 30px 80px rgba(0,0,0,0.7), 0 0 60px ${T.accent}22`, textAlign: 'center', padding: '40px 32px 32px', animation: 'ringPulse 1.5s ease-in-out infinite' }}>
+            <div style={{ width: 88, height: 88, borderRadius: '50%', background: `linear-gradient(135deg, ${T.accent}, ${T.accentLight})`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px', boxShadow: `0 8px 30px ${T.accentGlow}` }}>
+              <span style={{ fontSize: 40, animation: 'phoneBounce 0.5s ease-in-out infinite' }}>📞</span>
             </div>
-            <div style={{ fontSize: 20, fontWeight: 800, color: T.text, fontFamily: "'Inter', sans-serif", marginBottom: 4 }}>{incomingCall.fromName}</div>
-            <div style={{ fontSize: 13, color: T.textMuted, fontFamily: "'JetBrains Mono',monospace" }}>está te ligando...</div>
-            <div style={{ fontSize: 11, color: T.textDim, fontFamily: "'JetBrains Mono',monospace", marginTop: 8 }}>📹 Chamada de vídeo</div>
-            <div style={{ display: 'flex', gap: 14, marginTop: 28, justifyContent: 'center' }}>
-              <button onClick={declineCall} style={{ padding: '14px 32px', borderRadius: 16, border: 'none', background: T.danger, color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: "'Inter', sans-serif", boxShadow: `0 4px 20px ${T.danger}44`, transition: 'transform 0.15s' }} onMouseOver={e => e.target.style.transform = 'scale(1.05)'} onMouseOut={e => e.target.style.transform = 'scale(1)'}>✕ Recusar</button>
-              <button onClick={acceptCall} style={{ padding: '14px 32px', borderRadius: 16, border: 'none', background: `linear-gradient(135deg, ${T.accent}, ${T.accentLight})`, color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: "'Inter', sans-serif", boxShadow: `0 4px 20px ${T.accentGlow}`, transition: 'transform 0.15s' }} onMouseOver={e => e.target.style.transform = 'scale(1.05)'} onMouseOut={e => e.target.style.transform = 'scale(1)'}>✓ Atender</button>
+            <div style={{ fontSize: 22, fontWeight: 700, color: T.text, fontFamily: T.fontMain, marginBottom: 6 }}>{incomingCall.fromName}</div>
+            <div style={{ fontSize: 14, color: T.textMuted, fontFamily: T.fontMain }}>está te ligando...</div>
+            <div style={{ fontSize: 12, color: T.textDim, fontFamily: T.fontMain, marginTop: 10 }}>📹 Chamada de vídeo</div>
+            <div style={{ display: 'flex', gap: 16, marginTop: 32, justifyContent: 'center' }}>
+              <button onClick={declineCall} style={{ padding: '14px 36px', borderRadius: 18, border: 'none', background: T.danger, color: '#fff', fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: T.fontMain, boxShadow: `0 4px 20px ${T.danger}44`, transition: 'transform 0.15s' }} onMouseOver={e => e.target.style.transform = 'scale(1.05)'} onMouseOut={e => e.target.style.transform = 'scale(1)'}>✕ Recusar</button>
+              <button onClick={acceptCall} style={{ padding: '14px 36px', borderRadius: 18, border: 'none', background: `linear-gradient(135deg, ${T.accent}, ${T.accentLight})`, color: '#fff', fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: T.fontMain, boxShadow: `0 4px 20px ${T.accentGlow}`, transition: 'transform 0.15s' }} onMouseOver={e => e.target.style.transform = 'scale(1.05)'} onMouseOut={e => e.target.style.transform = 'scale(1)'}>✓ Atender</button>
             </div>
           </div>
         </div>
