@@ -61,7 +61,7 @@ function Minimap({ player, peersArr }) {
 }
 
 // ═══════════ CHAT ═══════════
-function ChatPanel({ messages, onSend, nearbyNames, activeChannel, onChannelChange, channels }) {
+function ChatPanel({ messages, onSend, nearbyNames, activeChannel, onChannelChange, channels, isMinimized, onToggleMinimize }) {
   const [text, setText] = useState('')
   const listRef = useRef(null)
   const font = "'Inter', sans-serif"
@@ -69,9 +69,71 @@ function ChatPanel({ messages, onSend, nearbyNames, activeChannel, onChannelChan
   useEffect(() => { if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight }, [messages])
   const send = () => { if (!text.trim()) return; onSend(text.trim(), activeChannel); setText('') }
   const filtered = messages.filter(m => m.channel === activeChannel)
+  const unreadCount = messages.filter(m => !m.isMe).length
+
+  // Minimized state - show only header bar
+  if (isMinimized) {
+    return (
+      <div
+        onClick={onToggleMinimize}
+        style={{
+          padding: '12px 16px',
+          background: T.surface,
+          borderTop: `1px solid ${T.border}`,
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          transition: 'all 0.2s'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: font }}>
+          <span style={{ fontSize: 16 }}>💬</span>
+          <span style={{ fontSize: 12, fontWeight: 600, color: T.text }}>Chat</span>
+          {unreadCount > 0 && (
+            <span style={{
+              background: T.accent,
+              color: '#fff',
+              fontSize: 10,
+              fontWeight: 700,
+              padding: '2px 6px',
+              borderRadius: 10,
+              minWidth: 18,
+              textAlign: 'center'
+            }}>
+              {unreadCount}
+            </span>
+          )}
+        </div>
+        <span style={{ color: T.textDim, fontSize: 14 }}>▲</span>
+      </div>
+    )
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: T.bg }}>
+      {/* Header with minimize button */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderBottom: `1px solid ${T.border}`, background: T.surface }}>
+        <span style={{ fontSize: 12, fontWeight: 700, color: T.text, fontFamily: font }}>💬 Chat</span>
+        <button
+          onClick={onToggleMinimize}
+          style={{
+            width: 24, height: 24,
+            borderRadius: 6,
+            border: `1px solid ${T.border}`,
+            background: 'transparent',
+            color: T.textMuted,
+            fontSize: 10,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+          title="Minimizar chat"
+        >
+          ▼
+        </button>
+      </div>
       {/* Channel tabs */}
       <div style={{ display: 'flex', gap: 6, padding: '10px 12px', borderBottom: `1px solid ${T.border}`, overflowX: 'auto' }}>
         {channels.map(ch => (
@@ -243,6 +305,7 @@ export default function App() {
   const [showAvatarEditor, setShowAvatarEditor] = useState(false)
   const [showDeviceSettings, setShowDeviceSettings] = useState(false)
   const [activeChannel, setActiveChannel] = useState('geral')
+  const [chatMinimized, setChatMinimized] = useState(false)
   const [notification, setNotification] = useState(null)
   const [callError, setCallError] = useState(null)
   const mapRef = useRef(null)
@@ -361,8 +424,6 @@ export default function App() {
   const channels = [
     { id: 'geral', label: 'Geral', icon: '#' },
     { id: 'proximity', label: 'Próximos', icon: '●' },
-    { id: 'ofertas', label: 'Ofertas', icon: '◆' },
-    { id: 'random', label: 'Random', icon: '~' },
   ]
 
   const showNotif = useCallback(msg => {
@@ -664,7 +725,7 @@ export default function App() {
           </div>
           <div style={{ flex: 1, overflow: 'hidden' }}>
             {rightPanel === 'chat' ? (
-              <ChatPanel messages={messages} onSend={sendMessage} nearbyNames={nearbyPeople.map(p => (p.display_name || 'Anon').split(' ')[0])} activeChannel={activeChannel} onChannelChange={setActiveChannel} channels={channels} />
+              <ChatPanel messages={messages} onSend={sendMessage} nearbyNames={nearbyPeople.map(p => (p.display_name || 'Anon').split(' ')[0])} activeChannel={activeChannel} onChannelChange={setActiveChannel} channels={channels} isMinimized={chatMinimized} onToggleMinimize={() => setChatMinimized(!chatMinimized)} />
             ) : (
               <PeopleList peersArr={peersArr} player={player} onSelect={c => setShowProfile(c)} />
             )}
