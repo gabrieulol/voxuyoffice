@@ -63,76 +63,118 @@ function Minimap({ player, peersArr }) {
 function ChatPanel({ messages, onSend, nearbyNames, activeChannel, onChannelChange, channels }) {
   const [text, setText] = useState('')
   const listRef = useRef(null)
+  const font = "'Inter', sans-serif"
+  const fontMono = "'JetBrains Mono', monospace"
   useEffect(() => { if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight }, [messages])
   const send = () => { if (!text.trim()) return; onSend(text.trim(), activeChannel); setText('') }
   const filtered = messages.filter(m => m.channel === activeChannel)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: T.bg }}>
-      <div style={{ display: 'flex', gap: 4, padding: '8px 10px', borderBottom: `1px solid ${T.border}`, overflowX: 'auto' }}>
+      {/* Channel tabs */}
+      <div style={{ display: 'flex', gap: 6, padding: '10px 12px', borderBottom: `1px solid ${T.border}`, overflowX: 'auto' }}>
         {channels.map(ch => (
-          <button key={ch.id} onClick={() => onChannelChange(ch.id)} style={{ padding: '4px 10px', borderRadius: 8, border: activeChannel === ch.id ? `1px solid ${T.accent}` : '1px solid transparent', background: activeChannel === ch.id ? T.accentDim : 'transparent', color: activeChannel === ch.id ? T.accent : T.textDim, fontSize: 10, fontWeight: 700, cursor: 'pointer', fontFamily: "'JetBrains Mono',monospace", whiteSpace: 'nowrap' }}>
+          <button key={ch.id} onClick={() => onChannelChange(ch.id)} style={{ padding: '6px 14px', borderRadius: 20, border: activeChannel === ch.id ? `1px solid ${T.accent}` : '1px solid transparent', background: activeChannel === ch.id ? T.accentDim : 'transparent', color: activeChannel === ch.id ? T.accent : T.textMuted, fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: font, whiteSpace: 'nowrap', transition: 'all 0.15s' }}>
             {ch.icon} {ch.label}
           </button>
         ))}
       </div>
+      {/* Nearby indicator */}
       {nearbyNames.length > 0 && activeChannel === 'proximity' && (
-        <div style={{ padding: '6px 12px', background: T.accentDim, fontSize: 10, color: T.accent, fontFamily: "'JetBrains Mono',monospace", borderBottom: `1px solid ${T.border}` }}>
-          ● Próximos: {nearbyNames.join(', ')}
+        <div style={{ padding: '8px 14px', background: `${T.accent}12`, fontSize: 11, color: T.accent, fontFamily: font, fontWeight: 500, borderBottom: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: T.accent, animation: 'pulse 1.5s infinite' }} />
+          Próximos: {nearbyNames.join(', ')}
         </div>
       )}
-      <div ref={listRef} style={{ flex: 1, overflowY: 'auto', padding: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {filtered.length === 0 && <div style={{ textAlign: 'center', color: T.textDim, fontSize: 12, fontFamily: "'JetBrains Mono',monospace", marginTop: 40 }}><div style={{ fontSize: 24, marginBottom: 8, opacity: 0.4 }}>◇</div>{activeChannel === 'proximity' ? 'Ande até alguém' : 'Sem mensagens'}</div>}
+      {/* Messages */}
+      <div ref={listRef} style={{ flex: 1, overflowY: 'auto', padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {filtered.length === 0 && (
+          <div style={{ textAlign: 'center', color: T.textDim, fontSize: 13, fontFamily: font, marginTop: 50 }}>
+            <div style={{ fontSize: 32, marginBottom: 12, opacity: 0.3 }}>💬</div>
+            {activeChannel === 'proximity' ? 'Ande até alguém para conversar' : 'Nenhuma mensagem ainda'}
+          </div>
+        )}
         {filtered.map((m, i) => (
           <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: m.isMe ? 'flex-end' : 'flex-start' }}>
-            {!m.isMe && <span style={{ fontSize: 9, color: T.textDim, marginBottom: 1, fontFamily: "'JetBrains Mono',monospace", fontWeight: 600 }}>{m.sender}</span>}
-            <div style={{ background: m.isMe ? '#1a2a1a' : '#1e1e24', color: m.isMe ? T.accent : T.text, padding: '7px 12px', borderRadius: m.isMe ? '12px 12px 3px 12px' : '12px 12px 12px 3px', maxWidth: '85%', fontSize: 12, fontFamily: "'JetBrains Mono',monospace", lineHeight: 1.5, wordBreak: 'break-word', border: m.isMe ? `1px solid ${T.accent}22` : `1px solid ${T.border}` }}>{m.text}</div>
-            <span style={{ fontSize: 8, color: T.textDim, marginTop: 1, fontFamily: "'JetBrains Mono',monospace" }}>{m.time}</span>
+            {!m.isMe && <span style={{ fontSize: 10, color: T.textMuted, marginBottom: 3, fontFamily: font, fontWeight: 600 }}>{m.sender}</span>}
+            <div style={{
+              background: m.isMe ? `linear-gradient(135deg, ${T.accent}22, ${T.accent}11)` : T.surface,
+              color: m.isMe ? T.accentLight : T.text,
+              padding: '10px 16px',
+              borderRadius: m.isMe ? '20px 20px 6px 20px' : '20px 20px 20px 6px',
+              maxWidth: '85%',
+              fontSize: 13,
+              fontFamily: font,
+              lineHeight: 1.5,
+              wordBreak: 'break-word',
+              border: m.isMe ? `1px solid ${T.accent}33` : `1px solid ${T.border}`,
+              boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+            }}>{m.text}</div>
+            <span style={{ fontSize: 9, color: T.textDim, marginTop: 3, fontFamily: fontMono }}>{m.time}</span>
           </div>
         ))}
       </div>
-      <div style={{ padding: 10, borderTop: `1px solid ${T.border}`, display: 'flex', gap: 8 }}>
-        <input type="text" placeholder="Mensagem..." value={text} onChange={e => setText(e.target.value)} onKeyDown={e => e.key === 'Enter' && send()} style={{ flex: 1, padding: '9px 14px', border: `1px solid ${T.border}`, borderRadius: 10, outline: 'none', fontFamily: "'JetBrains Mono',monospace", fontSize: 11, background: T.surface, color: T.text }} onFocus={e => e.target.style.borderColor = T.accent} onBlur={e => e.target.style.borderColor = T.border} />
-        <button onClick={send} style={{ width: 36, height: 36, borderRadius: 10, border: 'none', background: text.trim() ? T.accent : T.borderLight, color: text.trim() ? T.bg : T.textDim, fontSize: 14, cursor: text.trim() ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>↑</button>
+      {/* Input */}
+      <div style={{ padding: 12, borderTop: `1px solid ${T.border}`, display: 'flex', gap: 10, background: T.surface }}>
+        <input
+          type="text"
+          placeholder="Digite uma mensagem..."
+          value={text}
+          onChange={e => setText(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && send()}
+          style={{ flex: 1, padding: '12px 18px', border: `2px solid ${T.border}`, borderRadius: 24, outline: 'none', fontFamily: font, fontSize: 13, background: T.bg, color: T.text, transition: 'border-color 0.2s' }}
+          onFocus={e => e.target.style.borderColor = T.accent}
+          onBlur={e => e.target.style.borderColor = T.border}
+        />
+        <button onClick={send} style={{ width: 44, height: 44, borderRadius: 22, border: 'none', background: text.trim() ? `linear-gradient(135deg, ${T.accent}, ${T.accentLight})` : T.borderLight, color: text.trim() ? '#fff' : T.textDim, fontSize: 16, cursor: text.trim() ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, boxShadow: text.trim() ? `0 4px 15px ${T.accentGlow}` : 'none', transition: 'all 0.2s' }}>↑</button>
       </div>
     </div>
   )
 }
 
+
 // ═══════════ PEOPLE LIST ═══════════
 function PeopleList({ peersArr, player, onSelect }) {
   const [search, setSearch] = useState('')
+  const font = "'Inter', sans-serif"
   const all = peersArr.filter(c => !search || (c.display_name || '').toLowerCase().includes(search.toLowerCase()))
   const grouped = {}; Object.keys(STATUS).forEach(s => grouped[s] = []); all.forEach(c => grouped[c.status]?.push(c))
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: T.bg }}>
-      <div style={{ padding: 10, borderBottom: `1px solid ${T.border}` }}><input type="text" placeholder="Buscar..." value={search} onChange={e => setSearch(e.target.value)} style={{ width: '100%', padding: '8px 12px', border: `1px solid ${T.border}`, borderRadius: 8, outline: 'none', fontFamily: "'JetBrains Mono',monospace", fontSize: 10, background: T.surface, color: T.text }} /></div>
+      <div style={{ padding: 12, borderBottom: `1px solid ${T.border}` }}>
+        <input type="text" placeholder="🔍 Buscar pessoa..." value={search} onChange={e => setSearch(e.target.value)} style={{ width: '100%', padding: '10px 16px', border: `2px solid ${T.border}`, borderRadius: 20, outline: 'none', fontFamily: font, fontSize: 12, background: T.surface, color: T.text, transition: 'border-color 0.2s' }} onFocus={e => e.target.style.borderColor = T.accent} onBlur={e => e.target.style.borderColor = T.border} />
+      </div>
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {Object.entries(STATUS).map(([key, cfg]) => grouped[key]?.length > 0 && (
           <div key={key}>
-            <div style={{ padding: '10px 12px 4px', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: T.textDim, fontFamily: "'JetBrains Mono',monospace" }}>
-              <span style={{ color: cfg.color }}>{cfg.icon}</span> {cfg.label} ({grouped[key].length})
+            <div style={{ padding: '12px 14px 6px', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: T.textDim, fontFamily: font, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ color: cfg.color, fontSize: 8 }}>{cfg.icon}</span> {cfg.label} <span style={{ color: T.textMuted, fontWeight: 500 }}>({grouped[key].length})</span>
             </div>
             {grouped[key].map(c => {
               const near = dist(player, c) <= PROXIMITY_RANGE
               const [cc1, cc2] = PALETTES[(c.avatar_idx || 0) % PALETTES.length]
               return (
-                <div key={c.id} onClick={() => onSelect(c)} style={{ padding: '7px 12px', display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', background: near ? T.accentDim : 'transparent', borderLeft: near ? `2px solid ${T.accent}` : '2px solid transparent', transition: 'all 0.15s' }} onMouseEnter={e => { if (!near) e.currentTarget.style.background = T.surface }} onMouseLeave={e => { if (!near) e.currentTarget.style.background = 'transparent' }}>
-                  <div style={{ width: 30, height: 30, borderRadius: '50%', background: `linear-gradient(135deg,${cc1},${cc2})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0, overflow: 'hidden', border: `1.5px solid ${cfg.color}44` }}>
+                <div key={c.id} onClick={() => onSelect(c)} style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', background: near ? T.accentDim : 'transparent', borderLeft: near ? `3px solid ${T.accent}` : '3px solid transparent', borderRadius: near ? '0 12px 12px 0' : 0, marginRight: near ? 8 : 0, transition: 'all 0.15s' }} onMouseEnter={e => { if (!near) e.currentTarget.style.background = T.surface }} onMouseLeave={e => { if (!near) e.currentTarget.style.background = 'transparent' }}>
+                  <div style={{ width: 36, height: 36, borderRadius: '50%', background: `linear-gradient(135deg,${cc1},${cc2})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0, overflow: 'hidden', border: `2px solid ${cfg.color}33`, boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}>
                     {c.avatar_url ? <img src={c.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (c.emoji || '😊')}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: T.text, fontFamily: "'JetBrains Mono',monospace" }}>{(c.display_name || 'Anon').split(' ')[0]}</div>
-                    <div style={{ fontSize: 9, color: T.textDim, fontFamily: "'JetBrains Mono',monospace", whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.activity || c.role || 'Online'}</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: T.text, fontFamily: font }}>{(c.display_name || 'Anon').split(' ')[0]}</div>
+                    <div style={{ fontSize: 11, color: T.textMuted, fontFamily: font, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.activity || c.role || 'Online'}</div>
                   </div>
-                  {near && <div style={{ fontSize: 8, padding: '2px 6px', background: T.accent, color: T.bg, borderRadius: 6, fontWeight: 700, fontFamily: "'JetBrains Mono',monospace" }}>PERTO</div>}
+                  {near && <div style={{ fontSize: 9, padding: '4px 10px', background: `linear-gradient(135deg, ${T.accent}, ${T.accentLight})`, color: '#fff', borderRadius: 12, fontWeight: 700, fontFamily: font, boxShadow: `0 2px 8px ${T.accentGlow}` }}>PERTO</div>}
                 </div>
               )
             })}
           </div>
         ))}
-        {peersArr.length === 0 && <div style={{ textAlign: 'center', padding: 40, color: T.textDim, fontSize: 11, fontFamily: "'JetBrains Mono',monospace" }}>Ninguém online ainda.<br />Convide seu time! 🚀</div>}
+        {peersArr.length === 0 && (
+          <div style={{ textAlign: 'center', padding: 50, color: T.textDim, fontSize: 13, fontFamily: font }}>
+            <div style={{ fontSize: 36, marginBottom: 12, opacity: 0.3 }}>👥</div>
+            Ninguém online ainda.<br /><span style={{ color: T.textMuted }}>Convide seu time! 🚀</span>
+          </div>
+        )}
       </div>
     </div>
   )
