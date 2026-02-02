@@ -384,10 +384,29 @@ export function useVoiceCall(userId) {
   }, [userId, acquireMedia, createPeer, sendSignal])
 
   // ─── DIRECT CALL ───
-  const callPerson = useCallback(async (targetId, myName) => {
+  const callPerson = useCallback(async (targetId, myName, onSendPush) => {
     if (activeRef.current) return
     const roomId = `dm-${[userId, targetId].sort().join('-')}`
+
+    // Send signal via realtime for users with the app open
     sendSignal({ from: userId, to: targetId, type: 'call-invite', room: roomId, fromName: myName || 'Alguém' })
+
+    // Also send push notification for users who may have the app closed
+    if (onSendPush) {
+      onSendPush(targetId, {
+        title: '📞 Chamada recebida',
+        body: `${myName || 'Alguém'} está te ligando...`,
+        tag: 'incoming-call',
+        requireInteraction: true,
+        callerId: userId,
+        roomId: roomId,
+        actions: [
+          { action: 'accept', title: '✓ Atender' },
+          { action: 'decline', title: '✕ Recusar' }
+        ]
+      })
+    }
+
     activeRef.current = true
     setCallState('joining')
     callRoomRef.current = roomId

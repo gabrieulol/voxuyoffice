@@ -7,6 +7,7 @@ import OfficeTile from './components/OfficeTile'
 import VoiceCallBar from './components/VoiceCallBar'
 import DeviceSettings from './components/DeviceSettings'
 import { useVoiceCall } from './lib/useVoiceCall'
+import { usePushNotifications } from './lib/usePushNotifications'
 
 // ═══════════ MAP AVATAR (SVG) ═══════════
 function MapAvatar({ person, isPlayer, isNearby, isVideo, isSpeaking, isInCall, onClick, reaction }) {
@@ -306,6 +307,16 @@ export default function App() {
     leaveCall, toggleMute: voiceToggleMute, toggleCamera, toggleScreenShare, changeDevices, callRoom,
   } = useVoiceCall(user?.id)
 
+  // ─── PUSH NOTIFICATIONS ───
+  const { isSupported: pushSupported, isSubscribed: pushSubscribed, subscribe: subscribePush, sendPushToUser } = usePushNotifications(user?.id)
+
+  // Subscribe to push notifications on first load (if supported and not subscribed)
+  useEffect(() => {
+    if (pushSupported && !pushSubscribed && user?.id) {
+      subscribePush()
+    }
+  }, [pushSupported, pushSubscribed, user?.id, subscribePush])
+
   const nearbyPeople = peersArr.filter(c => player && dist(player, c) <= PROXIMITY_RANGE)
   const currentRoom = player ? getRoom(player.x, player.y) : null
 
@@ -337,13 +348,14 @@ export default function App() {
     if (!person || callState === 'active') return
     try {
       setCallError(null)
-      await callPerson(person.id, player?.display_name)
+      // Pass sendPushToUser to also notify user via push if they're not online
+      await callPerson(person.id, player?.display_name, sendPushToUser)
       showNotif(`📞 Ligando para ${(person.display_name || 'Anon').split(' ')[0]}...`)
     } catch (e) {
       setCallError('Não foi possível acessar o microfone.')
       showNotif('❌ Erro ao ligar')
     }
-  }, [callState, callPerson, player?.display_name])
+  }, [callState, callPerson, player?.display_name, sendPushToUser])
 
   const channels = [
     { id: 'geral', label: 'Geral', icon: '#' },
