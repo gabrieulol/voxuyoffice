@@ -13,6 +13,7 @@ export function useRealtime(userId, profile) {
   const [reactions, setReactions] = useState({}) // { oderId: emoji }
   const channelRef = useRef(null)
   const presenceRef = useRef(null)
+  const lastProfileRef = useRef(null)
 
   // Initialize channel
   useEffect(() => {
@@ -105,10 +106,65 @@ export function useRealtime(userId, profile) {
     }
   }, [userId, profile?.display_name]) // only reinit on user change
 
+  // Keep connection alive and reconnect on visibility change
+  useEffect(() => {
+    if (!userId || !profile) return
+
+    // Store latest profile for reconnection
+    lastProfileRef.current = profile
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && channelRef.current && lastProfileRef.current) {
+        // Re-track presence when tab becomes visible again
+        const p = lastProfileRef.current
+        channelRef.current.track({
+          x: p.x,
+          y: p.y,
+          status: p.status || 'available',
+          display_name: p.display_name || 'Anônimo',
+          emoji: p.emoji || '😊',
+          avatar_url: p.avatar_url || null,
+          role: p.role || '',
+          team: p.team || '',
+          activity: p.activity || 'Online',
+          avatar_idx: p.avatar_idx ?? 0,
+        })
+      }
+    }
+
+    // Heartbeat to keep presence alive (every 20 seconds)
+    const heartbeatInterval = setInterval(() => {
+      if (channelRef.current && lastProfileRef.current && document.visibilityState === 'visible') {
+        const p = lastProfileRef.current
+        channelRef.current.track({
+          x: p.x,
+          y: p.y,
+          status: p.status || 'available',
+          display_name: p.display_name || 'Anônimo',
+          emoji: p.emoji || '😊',
+          avatar_url: p.avatar_url || null,
+          role: p.role || '',
+          team: p.team || '',
+          activity: p.activity || 'Online',
+          avatar_idx: p.avatar_idx ?? 0,
+        })
+      }
+    }, 20000)
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      clearInterval(heartbeatInterval)
+    }
+  }, [userId, profile])
+
   // Update presence (position, status, etc)
   const updatePresence = useCallback((data) => {
     if (channelRef.current) {
       channelRef.current.track(data)
+      // Keep lastProfileRef updated for reconnection
+      lastProfileRef.current = data
     }
   }, [])
 

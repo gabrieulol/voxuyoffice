@@ -221,9 +221,33 @@ export default function App() {
     const { data } = await supabase.from('profiles').select('*').eq('id', uid).single()
     if (data) {
       setProfile(data)
-      const spawn = SPAWN_POINTS[Math.floor(Math.random() * SPAWN_POINTS.length)]
+
+      // Try to restore saved position from localStorage
+      const savedPosition = localStorage.getItem(`voxuy_position_${uid}`)
+      let startX, startY
+
+      if (savedPosition) {
+        try {
+          const { x, y } = JSON.parse(savedPosition)
+          // Validate saved position is walkable
+          if (canWalk(x, y)) {
+            startX = x
+            startY = y
+          }
+        } catch (e) {
+          // Invalid saved position, use spawn point
+        }
+      }
+
+      // Fallback to random spawn point if no valid saved position
+      if (startX === undefined || startY === undefined) {
+        const spawn = SPAWN_POINTS[Math.floor(Math.random() * SPAWN_POINTS.length)]
+        startX = spawn.x
+        startY = spawn.y
+      }
+
       setPlayer({
-        id: uid, x: spawn.x, y: spawn.y,
+        id: uid, x: startX, y: startY,
         status: data.status || 'available',
         display_name: data.display_name,
         emoji: data.emoji || '😊',
@@ -321,7 +345,29 @@ export default function App() {
       team: player.team, activity: player.activity,
       avatar_idx: player.avatar_idx,
     })
+
+    // Save position to localStorage for persistence
+    localStorage.setItem(`voxuy_position_${user.id}`, JSON.stringify({ x: player.x, y: player.y }))
   }, [player?.x, player?.y, player?.status, player?.emoji, player?.avatar_url])
+
+  // ─── KEEP SESSION ALIVE on tab visibility change ───
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && user && player) {
+        // Re-broadcast presence when tab becomes visible again
+        updatePresence({
+          x: player.x, y: player.y, status: player.status,
+          display_name: player.display_name, emoji: player.emoji,
+          avatar_url: player.avatar_url, role: player.role,
+          team: player.team, activity: player.activity,
+          avatar_idx: player.avatar_idx,
+        })
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [user, player, updatePresence])
 
   // ─── KEYBOARD ───
   useEffect(() => {
