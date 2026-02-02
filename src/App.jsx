@@ -187,7 +187,8 @@ function AvatarEditor({ currentPhoto, currentEmoji, onSave, onClose }) {
   const [photo, setPhoto] = useState(currentPhoto)
   const [emoji, setEmoji] = useState(currentEmoji || '😊')
   const fileRef = useRef(null)
-  const emojis = '😊😎🤓🧑‍💻👨‍💼👩‍💼🦊🐱🐶🐸🦄🐨🎯🔥⚡🚀💎🌟🎮🎸☕🌿🎨🛠📊💡🏗🧪🔄✏'.match(/./gu)
+  const [uploading, setUploading] = useState(false)
+  const emojis = ['😊', '😎', '🤓', '😄', '😁', '🙂', '🤗', '🥳', '😇', '🤩', '🦊', '🐱', '🐶', '🐸', '🦄', '🐨', '🐼', '🐯', '🦁', '🐺', '🎯', '🔥', '⚡', '🚀', '💎', '🌟', '🎮', '🎸', '☕', '🌿', '🎨', '💻', '📊', '💡', '🛠', '🧪']
   const handleFile = e => { const f = e.target.files?.[0]; if (!f) return; const r = new FileReader(); r.onload = ev => { setPhoto(ev.target.result); setTab('photo') }; r.readAsDataURL(f) }
 
   return (
