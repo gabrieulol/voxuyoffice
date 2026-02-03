@@ -582,39 +582,59 @@ export function useVoiceCall(userId) {
     if (!isScreenSharingRef.current) {
       // Start screen sharing
       try {
+        console.log('[ScreenShare] Requesting screen share...')
         const stream = await navigator.mediaDevices.getDisplayMedia({
           video: { cursor: 'always' },
           audio: false,
         })
 
+        console.log('[ScreenShare] Got stream:', stream.id)
         screenStreamRef.current = stream
         setScreenStream(stream)
         isScreenSharingRef.current = true
         setIsScreenSharing(true)
 
         const screenTrack = stream.getVideoTracks()[0]
+        console.log('[ScreenShare] Track label:', screenTrack.label)
 
         // Handle user stopping share via browser UI
         screenTrack.onended = () => {
+          console.log('[ScreenShare] User stopped sharing via browser UI')
           stopScreenShare()
         }
 
-        // Add screen track to all peer connections
-        Object.entries(peersRef.current).forEach(([peerId, pc]) => {
-          pc.addTrack(screenTrack, stream)
-            // Renegotiate
-            ; (async () => {
-              makingOfferRef.current[peerId] = true
-              const offer = await pc.createOffer()
-              await pc.setLocalDescription(offer)
-              sendSignal({ from: userId, to: peerId, type: 'offer', sdp: pc.localDescription.sdp, room: callRoomRef.current })
-              makingOfferRef.current[peerId] = false
-            })()
-        })
+        // Add screen track to all peer connections and renegotiate
+        const peers = Object.entries(peersRef.current)
+        console.log('[ScreenShare] Adding track to', peers.length, 'peers')
+
+        for (const [peerId, pc] of peers) {
+          try {
+            pc.addTrack(screenTrack, stream)
+            console.log('[ScreenShare] Added track to peer:', peerId)
+
+            // Renegotiate with this peer
+            makingOfferRef.current[peerId] = true
+            const offer = await pc.createOffer()
+            await pc.setLocalDescription(offer)
+            sendSignal({
+              from: userId,
+              to: peerId,
+              type: 'offer',
+              sdp: pc.localDescription.sdp,
+              room: callRoomRef.current
+            })
+            console.log('[ScreenShare] Sent renegotiation offer to:', peerId)
+            makingOfferRef.current[peerId] = false
+          } catch (e) {
+            console.error('[ScreenShare] Failed to add track to peer:', peerId, e)
+            makingOfferRef.current[peerId] = false
+          }
+        }
 
         sendSignal({ from: userId, to: '*', type: 'screen-state', sharing: true, room: callRoomRef.current })
+        console.log('[ScreenShare] Broadcast screen-state: sharing=true')
       } catch (e) {
-        console.warn('Screen share cancelled or failed:', e)
+        console.warn('[ScreenShare] Cancelled or failed:', e)
       }
     } else {
       stopScreenShare()
