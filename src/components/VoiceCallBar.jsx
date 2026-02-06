@@ -166,15 +166,63 @@ function CallBtn({ active, danger, onClick, icon, label }) {
 function VideoTile({ name, emoji, avatarUrl, avatarIdx, speaking, muted, camOff, stream, isSelf }) {
   const videoRef = useRef(null)
   const [c1, c2] = PALETTES[avatarIdx % PALETTES.length]
+  const [hasActiveVideo, setHasActiveVideo] = useState(false)
 
+  // Assign stream to video element and handle track changes
   useEffect(() => {
-    if (videoRef.current && stream) {
-      videoRef.current.srcObject = stream
+    const video = videoRef.current
+    if (!video) return
+
+    if (stream) {
+      video.srcObject = stream
+
+      // Check if video tracks are available
+      const checkVideo = () => {
+        const videoTracks = stream.getVideoTracks()
+        const hasVideo = videoTracks.length > 0 && videoTracks.some(t => t.enabled && t.readyState === 'live')
+        setHasActiveVideo(hasVideo)
+      }
+
+      checkVideo()
+
+      // Force play on stream assignment
+      video.play().catch(() => {
+        // Autoplay blocked, will show avatar instead
+      })
+
+      // Listen for track changes
+      const handleTrackChange = () => {
+        checkVideo()
+      }
+
+      stream.addEventListener('addtrack', handleTrackChange)
+      stream.addEventListener('removetrack', handleTrackChange)
+
+      // Also listen for track state changes
+      stream.getVideoTracks().forEach(track => {
+        track.onmute = handleTrackChange
+        track.onunmute = handleTrackChange
+        track.onended = handleTrackChange
+      })
+
+      return () => {
+        stream.removeEventListener('addtrack', handleTrackChange)
+        stream.removeEventListener('removetrack', handleTrackChange)
+      }
+    } else {
+      video.srcObject = null
+      setHasActiveVideo(false)
     }
   }, [stream])
 
-  const videoTracks = stream?.getVideoTracks() || []
-  const hasVideo = videoTracks.length > 0 && videoTracks.some(t => t.enabled && t.readyState === 'live')
+  // Re-check video availability when camOff changes
+  useEffect(() => {
+    if (stream) {
+      const videoTracks = stream.getVideoTracks()
+      const hasVideo = videoTracks.length > 0 && videoTracks.some(t => t.enabled && t.readyState === 'live')
+      setHasActiveVideo(hasVideo && !camOff)
+    }
+  }, [camOff, stream])
 
   return (
     <div style={{
@@ -183,20 +231,24 @@ function VideoTile({ name, emoji, avatarUrl, avatarIdx, speaking, muted, camOff,
       border: speaking ? `2px solid ${T.accent}` : '2px solid #222',
       transition: 'border-color 0.2s',
     }}>
-      {hasVideo ? (
-        <video
-          ref={videoRef}
-          autoPlay playsInline muted={isSelf}
-          style={{
-            width: '100%', height: '100%', objectFit: 'cover',
-            transform: isSelf ? 'scaleX(-1)' : 'none',
-          }}
-        />
-      ) : (
+      {/* Always render video element to maintain stream connection */}
+      <video
+        ref={videoRef}
+        autoPlay playsInline muted={isSelf}
+        style={{
+          width: '100%', height: '100%', objectFit: 'cover',
+          transform: isSelf ? 'scaleX(-1)' : 'none',
+          display: hasActiveVideo && !camOff ? 'block' : 'none',
+        }}
+      />
+
+      {/* Show avatar when no video */}
+      {(!hasActiveVideo || camOff) && (
         <div style={{
           width: '100%', height: '100%', display: 'flex', flexDirection: 'column',
           alignItems: 'center', justifyContent: 'center',
           background: `linear-gradient(135deg,${c1}22,${c2}22)`,
+          position: 'absolute', inset: 0,
         }}>
           <div style={{
             width: 40, height: 40, borderRadius: '50%',
