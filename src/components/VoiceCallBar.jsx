@@ -244,6 +244,8 @@ function AvatarBubble({ name, emoji, avatarUrl, avatarIdx, speaking, muted }) {
 // ─── Screen Share Tile ───
 function ScreenShareTile({ stream, label }) {
   const videoRef = useRef(null)
+  const fullscreenVideoRef = useRef(null)
+  const [isFullscreen, setIsFullscreen] = useState(false)
 
   useEffect(() => {
     if (videoRef.current && stream) {
@@ -251,37 +253,116 @@ function ScreenShareTile({ stream, label }) {
     }
   }, [stream])
 
+  useEffect(() => {
+    if (fullscreenVideoRef.current && stream && isFullscreen) {
+      fullscreenVideoRef.current.srcObject = stream
+    }
+  }, [stream, isFullscreen])
+
+  // Handle escape key to exit fullscreen
+  useEffect(() => {
+    if (!isFullscreen) return
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') setIsFullscreen(false)
+    }
+    window.addEventListener('keydown', handleEscape)
+    return () => window.removeEventListener('keydown', handleEscape)
+  }, [isFullscreen])
+
   return (
-    <div style={{
-      position: 'relative', borderRadius: 12, overflow: 'hidden',
-      background: '#111', width: '100%', aspectRatio: '16/9',
-      border: `2px solid ${T.accent}44`,
-    }}>
-      {stream ? (
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          muted
-          style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#000' }}
-        />
-      ) : (
+    <>
+      <div style={{
+        position: 'relative', borderRadius: 12, overflow: 'hidden',
+        background: '#111', width: '100%', aspectRatio: '16/9',
+        border: `2px solid ${T.accent}44`,
+        cursor: 'pointer',
+      }} onClick={() => setIsFullscreen(true)}>
+        {stream ? (
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#000' }}
+          />
+        ) : (
+          <div style={{
+            width: '100%', height: '100%', display: 'flex', flexDirection: 'column',
+            alignItems: 'center', justifyContent: 'center', color: T.textDim,
+          }}>
+            <span style={{ fontSize: 32, marginBottom: 8 }}>💻</span>
+            <span style={{ fontSize: 11, fontFamily: "'JetBrains Mono',monospace" }}>Aguardando tela...</span>
+          </div>
+        )}
         <div style={{
-          width: '100%', height: '100%', display: 'flex', flexDirection: 'column',
-          alignItems: 'center', justifyContent: 'center', color: T.textDim,
+          position: 'absolute', bottom: 0, left: 0, right: 0,
+          padding: '6px 10px', background: 'linear-gradient(transparent, rgba(0,0,0,0.9))',
+          display: 'flex', alignItems: 'center', gap: 6,
         }}>
-          <span style={{ fontSize: 32, marginBottom: 8 }}>💻</span>
-          <span style={{ fontSize: 11, fontFamily: "'JetBrains Mono',monospace" }}>Aguardando tela...</span>
+          <span style={{ fontSize: 12 }}>💻</span>
+          <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', fontFamily: "'JetBrains Mono',monospace" }}>{label}</span>
+          <span style={{ marginLeft: 'auto', fontSize: 10, color: T.textDim }}>Clique para expandir ⤢</span>
+        </div>
+      </div>
+
+      {/* Fullscreen Modal */}
+      {isFullscreen && (
+        <div
+          onClick={() => setIsFullscreen(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 9999,
+            background: 'rgba(0,0,0,0.95)', backdropFilter: 'blur(8px)',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            padding: 20, cursor: 'zoom-out',
+          }}
+        >
+          <div style={{
+            position: 'absolute', top: 20, left: 20, right: 20,
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              background: 'rgba(0,0,0,0.6)', padding: '8px 14px', borderRadius: 8,
+            }}>
+              <span style={{ fontSize: 16 }}>💻</span>
+              <span style={{ fontSize: 14, fontWeight: 700, color: '#fff', fontFamily: "'JetBrains Mono',monospace" }}>{label}</span>
+            </div>
+            <button
+              onClick={(e) => { e.stopPropagation(); setIsFullscreen(false) }}
+              style={{
+                padding: '8px 16px', borderRadius: 8, border: 'none',
+                background: T.danger, color: '#fff', fontSize: 13, fontWeight: 700,
+                cursor: 'pointer', fontFamily: "'JetBrains Mono',monospace",
+              }}
+            >
+              ✕ Fechar (ESC)
+            </button>
+          </div>
+
+          {stream && (
+            <video
+              ref={fullscreenVideoRef}
+              autoPlay
+              playsInline
+              muted
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                maxWidth: '95vw', maxHeight: '85vh',
+                objectFit: 'contain', borderRadius: 12,
+                border: `2px solid ${T.accent}44`,
+                cursor: 'default',
+              }}
+            />
+          )}
+
+          <div style={{
+            position: 'absolute', bottom: 20, left: '50%', transform: 'translateX(-50%)',
+            color: T.textDim, fontSize: 12, fontFamily: "'JetBrains Mono',monospace",
+          }}>
+            Pressione ESC ou clique fora para fechar
+          </div>
         </div>
       )}
-      <div style={{
-        position: 'absolute', bottom: 0, left: 0, right: 0,
-        padding: '6px 10px', background: 'linear-gradient(transparent, rgba(0,0,0,0.9))',
-        display: 'flex', alignItems: 'center', gap: 6,
-      }}>
-        <span style={{ fontSize: 12 }}>💻</span>
-        <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', fontFamily: "'JetBrains Mono',monospace" }}>{label}</span>
-      </div>
-    </div>
+    </>
   )
 }
