@@ -296,8 +296,16 @@ function AvatarBubble({ name, emoji, avatarUrl, avatarIdx, speaking, muted }) {
 // ─── Screen Share Tile ───
 function ScreenShareTile({ stream, label }) {
   const videoRef = useRef(null)
-  const fullscreenVideoRef = useRef(null)
-  const [isFullscreen, setIsFullscreen] = useState(false)
+  const floatVideoRef = useRef(null)
+  const [isFloating, setIsFloating] = useState(false)
+  const [isMaximized, setIsMaximized] = useState(false)
+
+  // Position and size state for floating window
+  const [position, setPosition] = useState({ x: 100, y: 100 })
+  const [size, setSize] = useState({ width: 640, height: 400 })
+  const [isDragging, setIsDragging] = useState(false)
+  const [isResizing, setIsResizing] = useState(false)
+  const dragOffset = useRef({ x: 0, y: 0 })
 
   useEffect(() => {
     if (videoRef.current && stream) {
@@ -306,29 +314,78 @@ function ScreenShareTile({ stream, label }) {
   }, [stream])
 
   useEffect(() => {
-    if (fullscreenVideoRef.current && stream && isFullscreen) {
-      fullscreenVideoRef.current.srcObject = stream
+    if (floatVideoRef.current && stream && isFloating) {
+      floatVideoRef.current.srcObject = stream
     }
-  }, [stream, isFullscreen])
+  }, [stream, isFloating])
 
-  // Handle escape key to exit fullscreen
+  // Handle escape key
   useEffect(() => {
-    if (!isFullscreen) return
+    if (!isFloating) return
     const handleEscape = (e) => {
-      if (e.key === 'Escape') setIsFullscreen(false)
+      if (e.key === 'Escape') {
+        if (isMaximized) setIsMaximized(false)
+        else setIsFloating(false)
+      }
     }
     window.addEventListener('keydown', handleEscape)
     return () => window.removeEventListener('keydown', handleEscape)
-  }, [isFullscreen])
+  }, [isFloating, isMaximized])
+
+  // Dragging logic
+  const handleMouseDown = (e) => {
+    if (isMaximized) return
+    setIsDragging(true)
+    dragOffset.current = {
+      x: e.clientX - position.x,
+      y: e.clientY - position.y
+    }
+  }
+
+  const handleMouseMove = (e) => {
+    if (isDragging) {
+      setPosition({
+        x: Math.max(0, Math.min(window.innerWidth - size.width, e.clientX - dragOffset.current.x)),
+        y: Math.max(0, Math.min(window.innerHeight - size.height, e.clientY - dragOffset.current.y))
+      })
+    }
+    if (isResizing) {
+      const newWidth = Math.max(320, e.clientX - position.x)
+      const newHeight = Math.max(200, e.clientY - position.y)
+      setSize({ width: newWidth, height: newHeight })
+    }
+  }
+
+  const handleMouseUp = () => {
+    setIsDragging(false)
+    setIsResizing(false)
+  }
+
+  useEffect(() => {
+    if (isDragging || isResizing) {
+      window.addEventListener('mousemove', handleMouseMove)
+      window.addEventListener('mouseup', handleMouseUp)
+      return () => {
+        window.removeEventListener('mousemove', handleMouseMove)
+        window.removeEventListener('mouseup', handleMouseUp)
+      }
+    }
+  }, [isDragging, isResizing, position, size])
+
+  const handleResizeStart = (e) => {
+    e.stopPropagation()
+    setIsResizing(true)
+  }
 
   return (
     <>
+      {/* Inline preview */}
       <div style={{
         position: 'relative', borderRadius: 12, overflow: 'hidden',
         background: '#111', width: '100%', aspectRatio: '16/9',
         border: `2px solid ${T.accent}44`,
         cursor: 'pointer',
-      }} onClick={() => setIsFullscreen(true)}>
+      }} onClick={() => { setIsFloating(true); setIsMaximized(false) }}>
         {stream ? (
           <video
             ref={videoRef}
@@ -357,63 +414,136 @@ function ScreenShareTile({ stream, label }) {
         </div>
       </div>
 
-      {/* Fullscreen Modal */}
-      {isFullscreen && (
-        <div
-          onClick={() => setIsFullscreen(false)}
-          style={{
-            position: 'fixed', inset: 0, zIndex: 9999,
-            background: 'rgba(0,0,0,0.95)', backdropFilter: 'blur(8px)',
-            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-            padding: 20, cursor: 'zoom-out',
-          }}
-        >
-          <div style={{
-            position: 'absolute', top: 20, left: 20, right: 20,
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          }}>
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              background: 'rgba(0,0,0,0.6)', padding: '8px 14px', borderRadius: 8,
-            }}>
-              <span style={{ fontSize: 16 }}>💻</span>
-              <span style={{ fontSize: 14, fontWeight: 700, color: '#fff', fontFamily: "'JetBrains Mono',monospace" }}>{label}</span>
-            </div>
-            <button
-              onClick={(e) => { e.stopPropagation(); setIsFullscreen(false) }}
+      {/* Floating Window */}
+      {isFloating && (
+        <>
+          {/* Backdrop when maximized */}
+          {isMaximized && (
+            <div
+              onClick={() => setIsMaximized(false)}
               style={{
-                padding: '8px 16px', borderRadius: 8, border: 'none',
-                background: T.danger, color: '#fff', fontSize: 13, fontWeight: 700,
-                cursor: 'pointer', fontFamily: "'JetBrains Mono',monospace",
-              }}
-            >
-              ✕ Fechar (ESC)
-            </button>
-          </div>
-
-          {stream && (
-            <video
-              ref={fullscreenVideoRef}
-              autoPlay
-              playsInline
-              muted
-              onClick={(e) => e.stopPropagation()}
-              style={{
-                maxWidth: '95vw', maxHeight: '85vh',
-                objectFit: 'contain', borderRadius: 12,
-                border: `2px solid ${T.accent}44`,
-                cursor: 'default',
+                position: 'fixed', inset: 0, zIndex: 9998,
+                background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(4px)',
               }}
             />
           )}
 
-          <div style={{
-            position: 'absolute', bottom: 20, left: '50%', transform: 'translateX(-50%)',
-            color: T.textDim, fontSize: 12, fontFamily: "'JetBrains Mono',monospace",
-          }}>
-            Pressione ESC ou clique fora para fechar
+          {/* Floating window */}
+          <div
+            style={{
+              position: 'fixed',
+              zIndex: 9999,
+              ...(isMaximized ? {
+                inset: 20,
+                width: 'auto',
+                height: 'auto',
+              } : {
+                left: position.x,
+                top: position.y,
+                width: size.width,
+                height: size.height,
+              }),
+              background: 'rgba(0,0,0,0.95)',
+              borderRadius: 12,
+              border: `2px solid ${T.accent}66`,
+              boxShadow: '0 20px 60px rgba(0,0,0,0.8)',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+            }}
+          >
+            {/* Title bar - draggable */}
+            <div
+              onMouseDown={handleMouseDown}
+              style={{
+                padding: '8px 12px',
+                background: 'rgba(0,0,0,0.9)',
+                borderBottom: `1px solid ${T.border}`,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                cursor: isMaximized ? 'default' : 'move',
+                userSelect: 'none',
+              }}
+            >
+              <span style={{ fontSize: 14 }}>💻</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#fff', fontFamily: "'JetBrains Mono',monospace", flex: 1 }}>
+                {label}
+              </span>
+
+              {/* Window controls */}
+              <button
+                onClick={(e) => { e.stopPropagation(); setIsMaximized(!isMaximized) }}
+                style={{
+                  width: 28, height: 28, borderRadius: 6, border: 'none',
+                  background: T.accent + '33', color: T.accent,
+                  cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}
+                title={isMaximized ? 'Restaurar' : 'Maximizar'}
+              >
+                {isMaximized ? '⧉' : '⤢'}
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); setIsFloating(false) }}
+                style={{
+                  width: 28, height: 28, borderRadius: 6, border: 'none',
+                  background: T.danger + '33', color: T.danger,
+                  cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}
+                title="Fechar (ESC)"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Video content */}
+            <div style={{ flex: 1, background: '#000', position: 'relative' }}>
+              {stream && (
+                <video
+                  ref={floatVideoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  style={{
+                    width: '100%', height: '100%',
+                    objectFit: 'contain',
+                  }}
+                />
+              )}
+            </div>
+
+            {/* Resize handle (only when not maximized) */}
+            {!isMaximized && (
+              <div
+                onMouseDown={handleResizeStart}
+                style={{
+                  position: 'absolute',
+                  right: 0, bottom: 0,
+                  width: 20, height: 20,
+                  cursor: 'se-resize',
+                  background: 'linear-gradient(135deg, transparent 50%, rgba(255,255,255,0.2) 50%)',
+                  borderRadius: '0 0 10px 0',
+                }}
+              />
+            )}
+
+            {/* Status bar */}
+            <div style={{
+              padding: '4px 10px',
+              background: 'rgba(0,0,0,0.9)',
+              borderTop: `1px solid ${T.border}`,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              fontSize: 10,
+              color: T.textDim,
+              fontFamily: "'JetBrains Mono',monospace",
+            }}>
+              <span>🔴 Ao vivo</span>
+              <span style={{ marginLeft: 'auto' }}>Arraste a barra de título para mover • ESC para fechar</span>
+            </div>
           </div>
-        </div>
+        </>
       )}
     </>
   )
