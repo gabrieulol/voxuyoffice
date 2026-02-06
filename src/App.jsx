@@ -844,7 +844,6 @@ export default function App() {
             ))}
 
             <svg style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} width={mapW} height={mapH}>
-              <rect x={(player.x - PROXIMITY_RANGE) * TILE} y={(player.y - PROXIMITY_RANGE) * TILE} width={(PROXIMITY_RANGE * 2 + 1) * TILE} height={(PROXIMITY_RANGE * 2 + 1) * TILE} fill={T.accentDim} stroke={T.accent} strokeWidth={1} strokeDasharray="6 4" rx={8} opacity={0.4} />
               {peersArr.map(c => <MapAvatar key={c.id} person={c} isPlayer={false} isNearby={dist(player, c) <= PROXIMITY_RANGE} isVideo={dist(player, c) <= VIDEO_RANGE} isSpeaking={speakingUsers.has(c.id)} isInCall={!!callPeers[c.id]} onClick={() => setShowProfile(c)} reaction={reactions[c.id]} />)}
               <MapAvatar person={player} isPlayer={true} isNearby={false} isVideo={false} isSpeaking={speakingUsers.has(user.id)} isInCall={callState === 'active'} reaction={reactions[user.id]} />
             </svg>
