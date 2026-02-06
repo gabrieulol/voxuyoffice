@@ -678,6 +678,20 @@ export default function App() {
 
   const handleMapClick = e => {
     if (!player || !mapRef.current || showProfile) return
+
+    // Ignore clicks that originated from buttons, inputs, or other interactive elements
+    const target = e.target
+    if (target.tagName === 'BUTTON' ||
+      target.tagName === 'INPUT' ||
+      target.tagName === 'TEXTAREA' ||
+      target.closest('button') ||
+      target.closest('[role="button"]') ||
+      target.closest('.toolbar') ||
+      target.closest('.chat-panel') ||
+      target.closest('.voice-call-bar')) {
+      return
+    }
+
     const rect = mapRef.current.getBoundingClientRect()
     const tx = Math.floor((e.clientX - rect.left) / TILE)
     const ty = Math.floor((e.clientY - rect.top) / TILE)
@@ -862,7 +876,7 @@ export default function App() {
             <Minimap player={player} peersArr={peersArr} />
 
             {/* Toolbar */}
-            <div style={{ position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 6, background: 'rgba(0,0,0,0.85)', borderRadius: 14, padding: '6px 10px', backdropFilter: 'blur(8px)', border: `1px solid ${T.border}`, zIndex: 40 }}>
+            <div className="toolbar" style={{ position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 6, background: 'rgba(0,0,0,0.85)', borderRadius: 14, padding: '6px 10px', backdropFilter: 'blur(8px)', border: `1px solid ${T.border}`, zIndex: 40 }}>
               {callState === 'active' ? (
                 <>
                   <button onClick={voiceToggleMute} style={{ width: 38, height: 38, borderRadius: 10, border: `1px solid ${voiceMuted ? T.danger + '44' : T.accent + '44'}`, background: voiceMuted ? `${T.danger}15` : `${T.accent}15`, color: T.text, fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title={voiceMuted ? 'Ativar mic' : 'Mutar mic'}>{voiceMuted ? '🔇' : '🎙'}</button>

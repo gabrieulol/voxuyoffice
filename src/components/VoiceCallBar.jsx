@@ -23,7 +23,7 @@ export default function VoiceCallBar({
   const hasScreenShare = isScreenSharing || remoteScreenCount > 0
 
   return (
-    <div style={{
+    <div className="voice-call-bar" style={{
       position: 'absolute', top: 56, left: '50%', transform: 'translateX(-50%)',
       background: 'rgba(0,0,0,0.92)', backdropFilter: 'blur(16px)',
       borderRadius: 16, border: `1px solid ${T.accent}33`,
@@ -68,7 +68,7 @@ export default function VoiceCallBar({
               />
             </div>
           )}
-          
+
           {/* Screen Share Display - Remote */}
           {remoteScreenStreams && Object.entries(remoteScreenStreams).map(([peerId, stream]) => {
             const peerData = peersMap[peerId] || {}
