@@ -319,7 +319,9 @@ export function useVoiceCall(userId) {
     if (payload.to !== '*' && payload.to !== userId) return
 
     if (payload.type === 'peer-joined') {
+      console.log('[VoiceCall] Received peer-joined from:', peerId, 'room:', payload.room, 'my room:', callRoomRef.current, 'active:', activeRef.current)
       if (activeRef.current && callRoomRef.current === payload.room && !peersRef.current[peerId]) {
+        console.log('[VoiceCall] Creating peer connection with:', peerId)
         createPeer(peerId, true)
 
         // If we're screen sharing, notify the new peer
@@ -329,6 +331,8 @@ export function useVoiceCall(userId) {
             console.log('[VoiceCall] Notified new peer of our screen share:', peerId)
           }, 500)
         }
+      } else {
+        console.log('[VoiceCall] Skipping peer-joined - conditions not met. active:', activeRef.current, 'sameRoom:', callRoomRef.current === payload.room, 'alreadyConnected:', !!peersRef.current[peerId])
       }
       return
     }
@@ -480,15 +484,23 @@ export function useVoiceCall(userId) {
   }, [acquireMedia])
 
   // ─── JOIN ROOM CALL ───
-  const joinCall = useCallback(async (roomId, existingPeerIds = []) => {
+  // autoJoin: when true, starts with camera OFF (for automatic room calls)
+  const joinCall = useCallback(async (roomId, existingPeerIds = [], autoJoin = false) => {
     if (activeRef.current) return
     activeRef.current = true
     setCallState('joining')
     callRoomRef.current = roomId
     try {
-      await acquireMedia(true) // start with video on
+      // Auto-join starts with camera OFF for comfort, manual join starts with camera ON
+      await acquireMedia(!autoJoin)
+      // Broadcast that we joined - peers already in the call will connect to us
       sendSignal({ from: userId, to: '*', type: 'peer-joined', room: roomId })
-      existingPeerIds.forEach(pid => { if (pid !== userId) createPeer(pid, true) })
+      // Also try to connect to peers we know are in the room
+      existingPeerIds.forEach(pid => {
+        if (pid !== userId && !peersRef.current[pid]) {
+          createPeer(pid, true)
+        }
+      })
       setCallState('active')
     } catch (e) {
       activeRef.current = false; callRoomRef.current = null; setCallState('idle'); throw e
