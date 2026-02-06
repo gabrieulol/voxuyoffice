@@ -154,6 +154,7 @@ export function useVoiceCall(userId) {
   }, [])
 
   const sendSignal = useCallback((payload) => {
+    console.log('[VoiceCall] Sending signal:', payload.type, 'to:', payload.to, 'room:', payload.room)
     signalChannelRef.current?.send({ type: 'broadcast', event: 'voice-signal', payload })
   }, [])
 
@@ -411,8 +412,13 @@ export function useVoiceCall(userId) {
   useEffect(() => {
     if (!userId) return
     const ch = supabase.channel('stone-hq-voice-signals', { config: { broadcast: { self: false } } })
-    ch.on('broadcast', { event: 'voice-signal' }, ({ payload }) => handleSignal(payload))
-    ch.subscribe()
+    ch.on('broadcast', { event: 'voice-signal' }, ({ payload }) => {
+      console.log('[VoiceCall] Signal received:', payload.type, 'from:', payload.from, 'room:', payload.room)
+      handleSignal(payload)
+    })
+    ch.subscribe((status) => {
+      console.log('[VoiceCall] Signal channel status:', status)
+    })
     signalChannelRef.current = ch
     return () => { ch.unsubscribe(); signalChannelRef.current = null }
   }, [userId, handleSignal])
