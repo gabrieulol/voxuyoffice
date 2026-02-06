@@ -404,94 +404,156 @@ export default function App() {
   const previousRoomRef = useRef(null)
 
   // ─── AUTO-JOIN VOICE CALLS ───
-  // Two modes:
-  // 1. ROOM MODE: When inside a room (not hallway), auto-join room call
-  // 2. PROXIMITY MODE: When in hallway, auto-connect with nearby people
-  const previousNearbyRef = useRef([])
+  // Refs to hold current values for use inside timeouts
+  const playerRef = useRef(player)
+  const callStateRef = useRef(callState)
+  const peersArrRef = useRef(peersArr)
+  const joinCallRef = useRef(joinCall)
+  const leaveCallRef = useRef(leaveCall)
+  const callRoomRef = useRef(callRoom)
 
+  useEffect(() => { playerRef.current = player }, [player])
+  useEffect(() => { callStateRef.current = callState }, [callState])
+  useEffect(() => { peersArrRef.current = peersArr }, [peersArr])
+  useEffect(() => { joinCallRef.current = joinCall }, [joinCall])
+  useEffect(() => { leaveCallRef.current = leaveCall }, [leaveCall])
+  useEffect(() => { callRoomRef.current = callRoom }, [callRoom])
+
+  const previousRoomIdRef = useRef(null)
+  const joinTimerRef = useRef(null)
+
+  // Effect to handle room-based auto-join
   useEffect(() => {
     if (!player || !user) return
 
-    // Don't auto-join if in busy/do-not-disturb mode
-    const isBusy = player.status === 'busy'
-    if (isBusy) return
+    const currentRoomId = currentRoom?.id || null
+    const previousRoomId = previousRoomIdRef.current
 
-    const prevRoom = previousRoomRef.current
-    const newRoom = currentRoom
-    const isInRoom = newRoom && newRoom.id !== 'hallway'
-    const isInHallway = !newRoom || newRoom.id === 'hallway'
+    // Room actually changed
+    if (currentRoomId !== previousRoomId) {
+      console.log('[AutoCall] Room changed from', previousRoomId, 'to', currentRoomId)
+      previousRoomIdRef.current = currentRoomId
 
-    // === ROOM MODE ===
-    // Initial load: if already in a room, auto-join
-    const isInitialLoad = prevRoom === null && isInRoom
-
-    // Room changed or initial load
-    if (prevRoom?.id !== newRoom?.id || isInitialLoad) {
-      previousRoomRef.current = newRoom
-
-      // Left a room - leave the room call
-      if (prevRoom && prevRoom.id !== 'hallway' && callState === 'active' && callRoom === `room-${prevRoom.id}`) {
-        console.log('[AutoCall] Leaving room call:', prevRoom.label)
-        leaveCall()
+      // Clear any pending join timer
+      if (joinTimerRef.current) {
+        clearTimeout(joinTimerRef.current)
+        joinTimerRef.current = null
       }
 
-      // Entered a room - join room call
-      if (isInRoom && callState === 'idle') {
-        const delay = isInitialLoad ? 1000 : (prevRoom ? 600 : 200)
-        const timer = setTimeout(async () => {
-          if (previousRoomRef.current?.id === newRoom.id && callState === 'idle') {
-            console.log('[AutoCall] Joining room call:', newRoom.label)
+      // LEFT a room (not hallway) - leave the call for that room
+      if (previousRoomId && previousRoomId !== 'hallway') {
+        const expectedCallRoom = `room-${previousRoomId}`
+        if (callStateRef.current === 'active' && callRoomRef.current === expectedCallRoom) {
+          console.log('[AutoCall] Leaving room call:', previousRoomId)
+          leaveCallRef.current()
+        }
+      }
+
+      // ENTERED a room (not hallway) - schedule join
+      if (currentRoomId && currentRoomId !== 'hallway' && player.status !== 'busy') {
+        const delay = previousRoomId === null ? 1500 : 800
+
+        joinTimerRef.current = setTimeout(async () => {
+          // Use refs to get current values
+          const currentPlayer = playerRef.current
+          const currentCallState = callStateRef.current
+          const currentPeers = peersArrRef.current
+          const doJoinCall = joinCallRef.current
+
+          if (!currentPlayer) return
+
+          // Re-check if still in the same room
+          const stillInRoom = getRoom(currentPlayer.x, currentPlayer.y)?.id === currentRoomId
+
+          if (stillInRoom && currentCallState === 'idle') {
+            const roomData = ROOMS.find(r => r.id === currentRoomId)
+            const roomLabel = roomData?.label || currentRoomId
+            console.log('[AutoCall] Executing join for room:', roomLabel)
+
             try {
-              const peopleInRoom = peersArr.filter(p => {
+              const peopleInRoom = currentPeers.filter(p => {
                 const pRoom = getRoom(p.x, p.y)
-                return pRoom?.id === newRoom.id
+                return pRoom?.id === currentRoomId
               }).map(p => p.id)
-              await joinCall(`room-${newRoom.id}`, peopleInRoom, true)
-              setNotification(`🔊 Conectado: ${newRoom.label}`)
+
+              await doJoinCall(`room-${currentRoomId}`, peopleInRoom, true)
+              setNotification(`🔊 Conectado: ${roomLabel}`)
               setTimeout(() => setNotification(null), 3000)
             } catch (e) {
               console.warn('[AutoCall] Failed to join room:', e)
             }
+          } else {
+            console.log('[AutoCall] Skipped join - stillInRoom:', stillInRoom, 'callState:', currentCallState)
           }
         }, delay)
-        return () => clearTimeout(timer)
       }
     }
 
-    // === PROXIMITY MODE (Hallway only) ===
-    if (isInHallway) {
-      const currentNearbyIds = nearbyPeople.map(p => p.id).sort().join(',')
-      const prevNearbyIds = previousNearbyRef.current.sort().join(',')
+    return () => {
+      if (joinTimerRef.current) {
+        clearTimeout(joinTimerRef.current)
+        joinTimerRef.current = null
+      }
+    }
+  }, [currentRoom?.id, player?.id, user?.id, player?.status])
 
-      // Someone new came nearby
-      if (currentNearbyIds !== prevNearbyIds) {
-        previousNearbyRef.current = nearbyPeople.map(p => p.id)
+  // Separate effect for proximity calls in hallway
+  const previousNearbyRef = useRef([])
+  const proximityTimerRef = useRef(null)
+  const nearbyPeopleRef = useRef(nearbyPeople)
+  useEffect(() => { nearbyPeopleRef.current = nearbyPeople }, [nearbyPeople])
 
-        // If we now have nearby people and not in a call, start proximity call
-        if (nearbyPeople.length > 0 && callState === 'idle') {
-          const timer = setTimeout(async () => {
-            if (nearbyPeople.length > 0 && callState === 'idle') {
-              console.log('[AutoCall] Starting proximity call with:', nearbyPeople.map(p => p.display_name))
-              try {
-                await joinCall('proximity', nearbyPeople.map(p => p.id), true)
-                setNotification(`🔊 Conversa iniciada`)
-                setTimeout(() => setNotification(null), 3000)
-              } catch (e) {
-                console.warn('[AutoCall] Failed to start proximity call:', e)
-              }
+  useEffect(() => {
+    if (!player || !user) return
+
+    const isBusy = player.status === 'busy'
+    const isInHallway = !currentRoom || currentRoom.id === 'hallway'
+
+    if (!isInHallway || isBusy) {
+      previousNearbyRef.current = []
+      return
+    }
+
+    const currentNearbyIds = nearbyPeople.map(p => p.id).sort().join(',')
+    const prevNearbyIds = previousNearbyRef.current.sort().join(',')
+
+    if (currentNearbyIds !== prevNearbyIds) {
+      previousNearbyRef.current = nearbyPeople.map(p => p.id)
+
+      if (proximityTimerRef.current) {
+        clearTimeout(proximityTimerRef.current)
+      }
+
+      // Someone new is nearby and not in a call
+      if (nearbyPeople.length > 0 && callState === 'idle') {
+        proximityTimerRef.current = setTimeout(async () => {
+          const currentNearby = nearbyPeopleRef.current
+          if (currentNearby.length > 0 && callStateRef.current === 'idle') {
+            console.log('[AutoCall] Starting proximity call')
+            try {
+              await joinCallRef.current('proximity', currentNearby.map(p => p.id), true)
+              setNotification(`🔊 Conversa iniciada`)
+              setTimeout(() => setNotification(null), 3000)
+            } catch (e) {
+              console.warn('[AutoCall] Failed proximity call:', e)
             }
-          }, 500)
-          return () => clearTimeout(timer)
-        }
+          }
+        }, 600)
+      }
 
-        // If no more nearby people and in proximity call, leave
-        if (nearbyPeople.length === 0 && callState === 'active' && callRoom === 'proximity') {
-          console.log('[AutoCall] Leaving proximity call - no one nearby')
-          leaveCall()
-        }
+      // No one nearby anymore and in proximity call
+      if (nearbyPeople.length === 0 && callState === 'active' && callRoom === 'proximity') {
+        console.log('[AutoCall] Leaving proximity call')
+        leaveCallRef.current()
       }
     }
-  }, [currentRoom?.id, player, user, callState, callRoom, leaveCall, joinCall, peersArr, nearbyPeople, player?.status])
+
+    return () => {
+      if (proximityTimerRef.current) {
+        clearTimeout(proximityTimerRef.current)
+      }
+    }
+  }, [nearbyPeople.length, currentRoom?.id, callState, callRoom, player?.status])
 
   // Helper: manually reconnect to room call (if auto-join failed or user left)
   const handleStartCall = useCallback(async () => {
