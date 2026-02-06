@@ -177,6 +177,15 @@ export function useVoiceCall(userId) {
       localStreamRef.current.getTracks().forEach(t => pc.addTrack(t, localStreamRef.current))
     }
 
+    // Also add screen share track if we're currently sharing
+    if (screenStreamRef.current && isScreenSharingRef.current) {
+      const screenTrack = screenStreamRef.current.getVideoTracks()[0]
+      if (screenTrack) {
+        pc.addTrack(screenTrack, screenStreamRef.current)
+        console.log('[VoiceCall] Added screen share track to new peer:', peerId)
+      }
+    }
+
     pc.onicecandidate = ({ candidate }) => {
       if (candidate) sendSignal({ from: userIdRef.current, to: peerId, type: 'ice-candidate', candidate: candidate.toJSON(), room: callRoomRef.current })
     }
@@ -310,7 +319,17 @@ export function useVoiceCall(userId) {
     if (payload.to !== '*' && payload.to !== userId) return
 
     if (payload.type === 'peer-joined') {
-      if (activeRef.current && callRoomRef.current === payload.room && !peersRef.current[peerId]) createPeer(peerId, true)
+      if (activeRef.current && callRoomRef.current === payload.room && !peersRef.current[peerId]) {
+        createPeer(peerId, true)
+
+        // If we're screen sharing, notify the new peer
+        if (isScreenSharingRef.current) {
+          setTimeout(() => {
+            sendSignal({ from: userId, to: peerId, type: 'screen-state', sharing: true, room: callRoomRef.current })
+            console.log('[VoiceCall] Notified new peer of our screen share:', peerId)
+          }, 500)
+        }
+      }
       return
     }
     if (payload.type === 'peer-left') { cleanupPeer(peerId); return }
