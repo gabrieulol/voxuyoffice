@@ -511,11 +511,33 @@ export function useVoiceCall(userId) {
 
   // ─── TOGGLE MUTE ───
   const toggleMute = useCallback(() => {
-    if (!localStreamRef.current) return
-    const m = !isMuted
-    localStreamRef.current.getAudioTracks().forEach(t => { t.enabled = !m })
-    setIsMuted(m)
-    sendSignal({ from: userId, to: '*', type: 'mute-state', muted: m, room: callRoomRef.current })
+    if (!localStreamRef.current) {
+      console.warn('[VoiceCall] Cannot toggle mute - no local stream')
+      return
+    }
+
+    const newMuted = !isMuted
+    const audioTracks = localStreamRef.current.getAudioTracks()
+
+    console.log('[VoiceCall] Toggle mute:', newMuted, 'tracks:', audioTracks.length)
+
+    // Disable audio tracks on local stream
+    audioTracks.forEach(track => {
+      track.enabled = !newMuted
+      console.log('[VoiceCall] Audio track enabled:', track.enabled, 'id:', track.id)
+    })
+
+    // Also disable on all peer connection senders for reliability
+    Object.values(peersRef.current).forEach(pc => {
+      const audioSender = pc.getSenders().find(s => s.track && s.track.kind === 'audio')
+      if (audioSender && audioSender.track) {
+        audioSender.track.enabled = !newMuted
+        console.log('[VoiceCall] Sender audio track enabled:', audioSender.track.enabled)
+      }
+    })
+
+    setIsMuted(newMuted)
+    sendSignal({ from: userId, to: '*', type: 'mute-state', muted: newMuted, room: callRoomRef.current })
   }, [isMuted, userId, sendSignal])
 
   // ─── TOGGLE CAMERA ───
