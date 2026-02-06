@@ -1,11 +1,19 @@
-// Service Worker for Push Notifications
+// Service Worker for Push Notifications and Updates
 // This runs in the background even when the app is closed
 
-const CACHE_NAME = 'voxuy-office-v1'
+const CACHE_NAME = 'voxuy-office-v2'
 
-// Install event
+// Install event - notify clients about update
 self.addEventListener('install', (event) => {
-    console.log('[SW] Installing service worker...')
+    console.log('[SW] Installing new service worker...')
+    // Notify all clients that an update is available
+    event.waitUntil(
+        self.clients.matchAll({ type: 'window' }).then((clients) => {
+            clients.forEach((client) => {
+                client.postMessage({ type: 'UPDATE_AVAILABLE' })
+            })
+        })
+    )
     self.skipWaiting()
 })
 

@@ -308,8 +308,42 @@ export default function App() {
   const [chatMinimized, setChatMinimized] = useState(false)
   const [notification, setNotification] = useState(null)
   const [callError, setCallError] = useState(null)
+  const [updateAvailable, setUpdateAvailable] = useState(false)
   const mapRef = useRef(null)
   const notifRef = useRef(null)
+
+  // ─── SERVICE WORKER UPDATE DETECTION ───
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      // Listen for messages from service worker
+      navigator.serviceWorker.addEventListener('message', (event) => {
+        if (event.data?.type === 'UPDATE_AVAILABLE') {
+          console.log('[App] Update available!')
+          setUpdateAvailable(true)
+        }
+      })
+
+      // Also check for waiting service worker on load
+      navigator.serviceWorker.ready.then((registration) => {
+        if (registration.waiting) {
+          setUpdateAvailable(true)
+        }
+        
+        // Listen for new service worker installing
+        registration.addEventListener('updatefound', () => {
+          const newWorker = registration.installing
+          if (newWorker) {
+            newWorker.addEventListener('statechange', () => {
+              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                // New service worker is installed but waiting
+                setUpdateAvailable(true)
+              }
+            })
+          }
+        })
+      })
+    }
+  }, [])
 
   // ─── AUTH CHECK ───
   useEffect(() => {
@@ -779,6 +813,7 @@ export default function App() {
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
         @keyframes fadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
         @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+        @keyframes slideDown{from{transform:translateY(-100%)}to{transform:translateY(0)}}
         @keyframes glow{0%,100%{box-shadow:0 0 20px rgba(53,31,255,0.2)}50%{box-shadow:0 0 30px rgba(53,31,255,0.4)}}
         *{box-sizing:border-box;margin:0;padding:0}
         ::-webkit-scrollbar{width:4px}
@@ -786,6 +821,66 @@ export default function App() {
         ::-webkit-scrollbar-thumb{background:#252532;border-radius:4px}
         ::-webkit-scrollbar-thumb:hover{background:#303042}
       `}</style>
+
+      {/* UPDATE BANNER */}
+      {updateAvailable && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: 1000,
+          background: `linear-gradient(135deg, ${T.accent}, ${T.accentLight})`,
+          color: '#fff',
+          padding: '10px 20px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 16,
+          animation: 'slideDown 0.3s ease',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+          fontFamily: "'Inter', sans-serif",
+        }}>
+          <span style={{ fontSize: 13, fontWeight: 600 }}>
+            🚀 Nova versão disponível!
+          </span>
+          <button
+            onClick={() => window.location.reload()}
+            style={{
+              padding: '6px 16px',
+              borderRadius: 8,
+              border: '2px solid rgba(255,255,255,0.3)',
+              background: 'rgba(255,255,255,0.15)',
+              color: '#fff',
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: 'pointer',
+              fontFamily: "'JetBrains Mono', monospace",
+              transition: 'all 0.15s',
+            }}
+            onMouseOver={e => { e.target.style.background = 'rgba(255,255,255,0.25)' }}
+            onMouseOut={e => { e.target.style.background = 'rgba(255,255,255,0.15)' }}
+          >
+            Atualizar agora
+          </button>
+          <button
+            onClick={() => setUpdateAvailable(false)}
+            style={{
+              position: 'absolute',
+              right: 16,
+              background: 'none',
+              border: 'none',
+              color: 'rgba(255,255,255,0.7)',
+              fontSize: 18,
+              cursor: 'pointer',
+              padding: 4,
+            }}
+            title="Fechar"
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {/* HEADER */}
       <header style={{ height: 52, display: 'flex', alignItems: 'center', padding: '0 18px', borderBottom: `1px solid ${T.border}`, background: `linear-gradient(180deg, ${T.surface} 0%, ${T.bg} 100%)`, gap: 12, flexShrink: 0, zIndex: 20 }}>
