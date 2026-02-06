@@ -110,6 +110,7 @@ export function useVoiceCall(userId) {
   const userIdRef = useRef(userId)
   const isCamOffRef = useRef(false)
   const isScreenSharingRef = useRef(false)
+  const screenSharePeersRef = useRef(new Set()) // peers currently sharing screen
   userIdRef.current = userId
 
   // ─── SPEAKING DETECTION ───
@@ -193,29 +194,28 @@ export function useVoiceCall(userId) {
       const hasVideo = stream.getVideoTracks().length > 0
       const hasAudio = stream.getAudioTracks().length > 0
 
-      // Detect screen share: video-only track with specific label patterns
-      const isScreenShareTrack = track.kind === 'video' && (
-        track.label.toLowerCase().includes('screen') ||
-        track.label.toLowerCase().includes('window') ||
-        track.label.toLowerCase().includes('display') ||
-        track.label.toLowerCase().includes('monitor') ||
-        track.label.toLowerCase().includes('tab') ||
-        track.label.toLowerCase().includes('entire screen')
-      )
+      // Detect screen share: video track from a peer known to be sharing OR with specific label patterns
+      const labelHints = ['screen', 'window', 'display', 'monitor', 'tab', 'entire']
+      const isLabelHint = track.kind === 'video' && labelHints.some(h => track.label.toLowerCase().includes(h))
+      const isPeerSharing = screenSharePeersRef.current.has(peerId)
+
+      // If this is a video track and peer is known to be sharing (or label hints), treat as screen share
+      const isScreenShareTrack = track.kind === 'video' && (isLabelHint || (isPeerSharing && !hasAudio))
 
       if (isScreenShareTrack) {
-        console.log('[VoiceCall] Received screen share from', peerId, 'label:', track.label)
+        console.log('[VoiceCall] Received screen share from', peerId, 'label:', track.label, 'isPeerSharing:', isPeerSharing)
         setRemoteScreenStreams(prev => ({ ...prev, [peerId]: stream }))
         setCallPeers(prev => prev[peerId] ? { ...prev, [peerId]: { ...prev[peerId], screenSharing: true } } : prev)
 
         track.onended = () => {
-          console.log('[VoiceCall] Screen share ended from', peerId)
+          console.log('[VoiceCall] Screen share track ended from', peerId)
           setRemoteScreenStreams(prev => {
             const next = { ...prev }
             delete next[peerId]
             return next
           })
           setCallPeers(prev => prev[peerId] ? { ...prev, [peerId]: { ...prev[peerId], screenSharing: false } } : prev)
+          screenSharePeersRef.current.delete(peerId)
         }
         return // Don't process as regular stream
       }
@@ -306,7 +306,22 @@ export function useVoiceCall(userId) {
       return
     }
     if (payload.type === 'screen-state') {
+      console.log('[VoiceCall] Received screen-state from', peerId, 'sharing:', payload.sharing)
       setCallPeers(prev => prev[peerId] ? { ...prev, [peerId]: { ...prev[peerId], screenSharing: payload.sharing } } : prev)
+
+      // If peer started sharing, try to identify and move their screen stream
+      if (payload.sharing) {
+        // Mark that this peer is sharing, the next video track we receive from them is likely screen share
+        screenSharePeersRef.current.add(peerId)
+      } else {
+        // Peer stopped sharing, remove their screen stream
+        screenSharePeersRef.current.delete(peerId)
+        setRemoteScreenStreams(prev => {
+          const next = { ...prev }
+          delete next[peerId]
+          return next
+        })
+      }
       return
     }
 
