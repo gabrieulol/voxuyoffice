@@ -194,17 +194,26 @@ export function useVoiceCall(userId) {
       const hasVideo = stream.getVideoTracks().length > 0
       const hasAudio = stream.getAudioTracks().length > 0
 
-      // Detect screen share: video track from a peer known to be sharing OR with specific label patterns
+      // Detect screen share based on track label
       const labelHints = ['screen', 'window', 'display', 'monitor', 'tab', 'entire']
-      const isLabelHint = track.kind === 'video' && labelHints.some(h => track.label.toLowerCase().includes(h))
+      const label = (track.label || '').toLowerCase()
+      const isLabelHint = track.kind === 'video' && labelHints.some(h => label.includes(h))
+
+      // Camera labels usually contain 'camera', 'facetime', 'integrated', etc
+      const cameraHints = ['camera', 'facetime', 'integrated', 'webcam', 'built-in', 'usb', 'hd pro']
+      const isCameraLabel = track.kind === 'video' && cameraHints.some(h => label.includes(h))
+
       const isPeerSharing = screenSharePeersRef.current.has(peerId)
 
-      // If this is a video track and peer is known to be sharing (or label hints), treat as screen share
-      const isScreenShareTrack = track.kind === 'video' && (isLabelHint || (isPeerSharing && !hasAudio))
+      // Is screen share if: label hints match, OR (peer is sharing AND this is NOT a camera track)
+      const isScreenShareTrack = track.kind === 'video' && (isLabelHint || (isPeerSharing && !isCameraLabel && !hasAudio))
 
       if (isScreenShareTrack) {
         console.log('[VoiceCall] Received screen share from', peerId, 'label:', track.label, 'isPeerSharing:', isPeerSharing)
-        setRemoteScreenStreams(prev => ({ ...prev, [peerId]: stream }))
+
+        // Create a new stream with just the video track for screen share
+        const screenOnlyStream = new MediaStream([track])
+        setRemoteScreenStreams(prev => ({ ...prev, [peerId]: screenOnlyStream }))
         setCallPeers(prev => prev[peerId] ? { ...prev, [peerId]: { ...prev[peerId], screenSharing: true } } : prev)
 
         track.onended = () => {
@@ -217,7 +226,15 @@ export function useVoiceCall(userId) {
           setCallPeers(prev => prev[peerId] ? { ...prev, [peerId]: { ...prev[peerId], screenSharing: false } } : prev)
           screenSharePeersRef.current.delete(peerId)
         }
-        return // Don't process as regular stream
+
+        // If there's also audio in the stream, we still want that
+        if (hasAudio) {
+          let el = remoteAudioRef.current[peerId]
+          if (!el) { el = new Audio(); el.autoplay = true; el.playsInline = true; remoteAudioRef.current[peerId] = el }
+          el.srcObject = stream
+        }
+
+        return // Don't process video as regular stream
       }
 
       // Regular audio/video stream
@@ -311,8 +328,30 @@ export function useVoiceCall(userId) {
 
       // If peer started sharing, try to identify and move their screen stream
       if (payload.sharing) {
-        // Mark that this peer is sharing, the next video track we receive from them is likely screen share
+        // Mark that this peer is sharing
         screenSharePeersRef.current.add(peerId)
+
+        // Check if we already have a video stream from this peer - the renegotiation might bring a new track
+        // We'll handle it when the new track arrives via ontrack
+        console.log('[VoiceCall] Peer', peerId, 'started screen sharing, waiting for track')
+
+        // Also check existing peer connection for video tracks that might be screen shares
+        const pc = peersRef.current[peerId]
+        if (pc) {
+          const receivers = pc.getReceivers()
+          const videoReceiver = receivers.find(r => r.track && r.track.kind === 'video' && r.track.readyState === 'live')
+          if (videoReceiver && videoReceiver.track) {
+            // Check if this track looks like a screen share
+            const label = (videoReceiver.track.label || '').toLowerCase()
+            const labelHints = ['screen', 'window', 'display', 'monitor', 'tab', 'entire']
+            if (labelHints.some(h => label.includes(h))) {
+              console.log('[VoiceCall] Found existing screen share track from', peerId)
+              // Create a new MediaStream with this track
+              const screenStream = new MediaStream([videoReceiver.track])
+              setRemoteScreenStreams(prev => ({ ...prev, [peerId]: screenStream }))
+            }
+          }
+        }
       } else {
         // Peer stopped sharing, remove their screen stream
         screenSharePeersRef.current.delete(peerId)
