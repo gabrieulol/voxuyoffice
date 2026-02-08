@@ -178,7 +178,9 @@ export function useVoiceCall(userId) {
 
     // Add ALL local tracks (audio + video if present)
     if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach(t => pc.addTrack(t, localStreamRef.current))
+      const tracks = localStreamRef.current.getTracks()
+      console.log('[VoiceCall] Adding', tracks.length, 'tracks to peer:', peerId, 'tracks:', tracks.map(t => `${t.kind}:${t.enabled}`).join(', '))
+      tracks.forEach(t => pc.addTrack(t, localStreamRef.current))
     }
 
     // Also add screen share track if we're currently sharing
@@ -206,6 +208,8 @@ export function useVoiceCall(userId) {
       const track = event.track
       const hasVideo = stream.getVideoTracks().length > 0
       const hasAudio = stream.getAudioTracks().length > 0
+
+      console.log('[VoiceCall] ontrack from', peerId, '- kind:', track.kind, 'label:', track.label, 'hasVideo:', hasVideo, 'hasAudio:', hasAudio)
 
       // Detect screen share based on track label
       const labelHints = ['screen', 'window', 'display', 'monitor', 'tab', 'entire']
@@ -700,6 +704,7 @@ export function useVoiceCall(userId) {
 
         isCamOffRef.current = false
         setIsCamOff(false)
+        console.log('[VoiceCall] Camera ON - localStream now has tracks:', localStreamRef.current.getTracks().map(t => `${t.kind}:${t.enabled}`).join(', '))
         sendSignal({ from: userId, to: '*', type: 'cam-state', camOff: false, room: callRoomRef.current })
       } catch (e) {
         console.warn('Failed to get camera:', e)
