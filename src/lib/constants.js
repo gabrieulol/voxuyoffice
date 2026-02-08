@@ -105,7 +105,8 @@ export const canWalk = (x, y) => {
   if (x < 0 || y < 0 || x >= MAP_COLS || y >= MAP_ROWS) return false
   const t = MAP[y]?.[x]
   // Can walk on: floor(0), door(8), carpet blue(11), carpet purple(12), chair(18), server(9), printer(15), small plant(16)
-  return t === 0 || t === 8 || t === 11 || t === 12 || t === 18 || t === 9 || t === 15 || t === 16
+  // Also walkable: desk(2), meeting table(4), kitchen counter(5), sofa(6)
+  return t === 0 || t === 2 || t === 4 || t === 5 || t === 6 || t === 8 || t === 9 || t === 11 || t === 12 || t === 15 || t === 16 || t === 18
 }
 export const getRoom = (x, y) => ROOMS.find(r => x >= r.x1 && x <= r.x2 && y >= r.y1 && y <= r.y2) || null
 export const timeNow = () => new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
