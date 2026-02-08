@@ -332,13 +332,18 @@ export function useVoiceCall(userId) {
         console.log('[VoiceCall] Creating peer connection with:', peerId)
         createPeer(peerId, true)
 
-        // If we're screen sharing, notify the new peer
-        if (isScreenSharingRef.current) {
-          setTimeout(() => {
+        // Send our current media state to the new peer after connection is established
+        setTimeout(() => {
+          // Notify about camera state
+          sendSignal({ from: userId, to: peerId, type: 'cam-state', camOff: isCamOffRef.current, room: callRoomRef.current })
+          console.log('[VoiceCall] Sent cam-state to new peer:', peerId, 'camOff:', isCamOffRef.current)
+
+          // If we're screen sharing, notify the new peer
+          if (isScreenSharingRef.current) {
             sendSignal({ from: userId, to: peerId, type: 'screen-state', sharing: true, room: callRoomRef.current })
             console.log('[VoiceCall] Notified new peer of our screen share:', peerId)
-          }, 500)
-        }
+          }
+        }, 500)
       } else {
         console.log('[VoiceCall] Skipping peer-joined - conditions not met. active:', activeRef.current, 'sameRoom:', callRoomRef.current === payload.room, 'alreadyConnected:', !!peersRef.current[peerId])
       }
