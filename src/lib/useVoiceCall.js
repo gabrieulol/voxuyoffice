@@ -111,6 +111,7 @@ export function useVoiceCall(userId) {
   const isCamOffRef = useRef(false)
   const isScreenSharingRef = useRef(false)
   const screenSharePeersRef = useRef(new Set()) // peers currently sharing screen
+  const pendingIceCandidatesRef = useRef({}) // Buffer for ICE candidates that arrive before remote description
   userIdRef.current = userId
 
   // ─── SPEAKING DETECTION ───
@@ -163,6 +164,8 @@ export function useVoiceCall(userId) {
     if (pc) { pc.close(); delete peersRef.current[peerId] }
     const audio = remoteAudioRef.current[peerId]
     if (audio) { audio.srcObject = null; delete remoteAudioRef.current[peerId] }
+    // Clear pending ICE candidates
+    delete pendingIceCandidatesRef.current[peerId]
     stopSpeakingDetection(peerId)
     setCallPeers(prev => { const n = { ...prev }; delete n[peerId]; return n })
     setRemoteStreams(prev => { const n = { ...prev }; delete n[peerId]; return n })
@@ -397,14 +400,60 @@ export function useVoiceCall(userId) {
         if (collision && userId > peerId) return
         if (collision) await pc.setLocalDescription({ type: 'rollback' })
         await pc.setRemoteDescription({ type: 'offer', sdp: payload.sdp })
+
+        // Process any pending ICE candidates now that remote description is set
+        const pending = pendingIceCandidatesRef.current[peerId] || []
+        if (pending.length > 0) {
+          console.log('[VoiceCall] Processing', pending.length, 'pending ICE candidates for', peerId)
+          for (const candidate of pending) {
+            try {
+              await pc.addIceCandidate(new RTCIceCandidate(candidate))
+            } catch (e) {
+              console.warn('[VoiceCall] Failed to add pending ICE candidate:', e)
+            }
+          }
+          pendingIceCandidatesRef.current[peerId] = []
+        }
+
         const answer = await pc.createAnswer()
         await pc.setLocalDescription(answer)
         sendSignal({ from: userId, to: peerId, type: 'answer', sdp: pc.localDescription.sdp, room: callRoomRef.current })
       } catch (e) { console.warn('Offer handling error:', e) }
     } else if (payload.type === 'answer') {
-      try { await peersRef.current[peerId]?.setRemoteDescription({ type: 'answer', sdp: payload.sdp }) } catch (e) { console.warn('Answer error:', e) }
+      try {
+        await peersRef.current[peerId]?.setRemoteDescription({ type: 'answer', sdp: payload.sdp })
+
+        // Process any pending ICE candidates now that remote description is set
+        const pending = pendingIceCandidatesRef.current[peerId] || []
+        if (pending.length > 0) {
+          console.log('[VoiceCall] Processing', pending.length, 'pending ICE candidates for', peerId)
+          for (const candidate of pending) {
+            try {
+              await peersRef.current[peerId]?.addIceCandidate(new RTCIceCandidate(candidate))
+            } catch (e) {
+              console.warn('[VoiceCall] Failed to add pending ICE candidate:', e)
+            }
+          }
+          pendingIceCandidatesRef.current[peerId] = []
+        }
+      } catch (e) { console.warn('Answer error:', e) }
     } else if (payload.type === 'ice-candidate') {
-      try { await peersRef.current[peerId]?.addIceCandidate(new RTCIceCandidate(payload.candidate)) } catch (e) { console.warn('ICE error:', e) }
+      const pc = peersRef.current[peerId]
+      // Check if remote description is set
+      if (pc && pc.remoteDescription && pc.remoteDescription.type) {
+        try {
+          await pc.addIceCandidate(new RTCIceCandidate(payload.candidate))
+        } catch (e) {
+          console.warn('ICE error:', e)
+        }
+      } else {
+        // Buffer the candidate until remote description is set
+        console.log('[VoiceCall] Buffering ICE candidate for', peerId, '(remote description not set yet)')
+        if (!pendingIceCandidatesRef.current[peerId]) {
+          pendingIceCandidatesRef.current[peerId] = []
+        }
+        pendingIceCandidatesRef.current[peerId].push(payload.candidate)
+      }
     }
   }, [userId, createPeer, cleanupPeer, sendSignal])
 
