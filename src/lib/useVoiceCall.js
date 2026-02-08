@@ -176,19 +176,32 @@ export function useVoiceCall(userId) {
     if (peersRef.current[peerId]) peersRef.current[peerId].close()
     const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS })
 
-    // Add ALL local tracks (audio + video if present)
+    // Add ALL local tracks (audio + video if present) in a SINGLE stream
+    // This is critical: audio and video must be in the same stream for detection to work
     if (localStreamRef.current) {
       const tracks = localStreamRef.current.getTracks()
-      console.log('[VoiceCall] Adding', tracks.length, 'tracks to peer:', peerId, 'tracks:', tracks.map(t => `${t.kind}:${t.enabled}`).join(', '))
-      tracks.forEach(t => pc.addTrack(t, localStreamRef.current))
+      const audioTracks = tracks.filter(t => t.kind === 'audio')
+      const videoTracks = tracks.filter(t => t.kind === 'video')
+
+      console.log('[VoiceCall] Adding tracks to peer:', peerId)
+      console.log('[VoiceCall]   Audio tracks:', audioTracks.length, audioTracks.map(t => `${t.label}:${t.enabled}`).join(', '))
+      console.log('[VoiceCall]   Video tracks:', videoTracks.length, videoTracks.map(t => `${t.label}:${t.enabled}`).join(', '))
+
+      // Create a combined stream with all tracks to ensure they're associated
+      const combinedStream = new MediaStream([...audioTracks, ...videoTracks])
+      tracks.forEach(t => pc.addTrack(t, combinedStream))
+
+      console.log('[VoiceCall] Combined stream ID:', combinedStream.id, 'tracks:', combinedStream.getTracks().length)
     }
 
-    // Also add screen share track if we're currently sharing
+    // Screen share goes in a SEPARATE stream (no audio) - this is how we detect it
     if (screenStreamRef.current && isScreenSharingRef.current) {
       const screenTrack = screenStreamRef.current.getVideoTracks()[0]
       if (screenTrack) {
-        pc.addTrack(screenTrack, screenStreamRef.current)
-        console.log('[VoiceCall] Added screen share track to new peer:', peerId)
+        // Important: screen share stream has NO audio
+        const screenOnlyStream = new MediaStream([screenTrack])
+        pc.addTrack(screenTrack, screenOnlyStream)
+        console.log('[VoiceCall] Added screen share track (separate stream, no audio) to peer:', peerId)
       }
     }
 
@@ -206,68 +219,63 @@ export function useVoiceCall(userId) {
       if (!stream) return
 
       const track = event.track
-      const hasVideo = stream.getVideoTracks().length > 0
+      const streamId = stream.id
       const hasAudio = stream.getAudioTracks().length > 0
 
-      console.log('[VoiceCall] ontrack from', peerId, '- kind:', track.kind, 'label:', track.label, 'hasVideo:', hasVideo, 'hasAudio:', hasAudio)
+      console.log('[VoiceCall] ontrack from', peerId, '- kind:', track.kind, 'label:', track.label, 'streamId:', streamId, 'hasAudio:', hasAudio)
 
-      // Detect screen share based on track label
-      const labelHints = ['screen', 'window', 'display', 'monitor', 'tab', 'entire']
+      // IMPROVED DETECTION: Screen share streams DON'T have audio, camera streams DO
+      // This is the most reliable way to differentiate
+      const isScreenShareByStream = track.kind === 'video' && !hasAudio
+
+      // Also check label hints as backup
+      const screenLabelHints = ['screen', 'window', 'display', 'monitor', 'tab', 'entire']
       const label = (track.label || '').toLowerCase()
-      const isLabelHint = track.kind === 'video' && labelHints.some(h => label.includes(h))
+      const isScreenShareByLabel = track.kind === 'video' && screenLabelHints.some(h => label.includes(h))
 
-      // Camera labels usually contain 'camera', 'facetime', 'integrated', etc
-      const cameraHints = ['camera', 'facetime', 'integrated', 'webcam', 'built-in', 'usb', 'hd pro']
-      const isCameraLabel = track.kind === 'video' && cameraHints.some(h => label.includes(h))
-
-      const isPeerSharing = screenSharePeersRef.current.has(peerId)
-
-      // Is screen share if: label hints match, OR (peer is sharing AND this is NOT a camera track)
-      const isScreenShareTrack = track.kind === 'video' && (isLabelHint || (isPeerSharing && !isCameraLabel && !hasAudio))
+      const isScreenShareTrack = isScreenShareByStream || isScreenShareByLabel
 
       if (isScreenShareTrack) {
-        console.log('[VoiceCall] Received screen share from', peerId, 'label:', track.label, 'isPeerSharing:', isPeerSharing)
+        console.log('[VoiceCall] → Detected as SCREEN SHARE (byStream:', isScreenShareByStream, 'byLabel:', isScreenShareByLabel, ')')
 
-        // Create a new stream with just the video track for screen share
         const screenOnlyStream = new MediaStream([track])
         setRemoteScreenStreams(prev => ({ ...prev, [peerId]: screenOnlyStream }))
         setCallPeers(prev => prev[peerId] ? { ...prev, [peerId]: { ...prev[peerId], screenSharing: true } } : prev)
+        screenSharePeersRef.current.add(peerId)
 
         track.onended = () => {
           console.log('[VoiceCall] Screen share track ended from', peerId)
-          setRemoteScreenStreams(prev => {
-            const next = { ...prev }
-            delete next[peerId]
-            return next
-          })
+          setRemoteScreenStreams(prev => { const n = { ...prev }; delete n[peerId]; return n })
           setCallPeers(prev => prev[peerId] ? { ...prev, [peerId]: { ...prev[peerId], screenSharing: false } } : prev)
           screenSharePeersRef.current.delete(peerId)
         }
-
-        // If there's also audio in the stream, we still want that
-        if (hasAudio) {
-          let el = remoteAudioRef.current[peerId]
-          if (!el) { el = new Audio(); el.autoplay = true; el.playsInline = true; remoteAudioRef.current[peerId] = el }
-          el.srcObject = stream
-        }
-
-        return // Don't process video as regular stream
+        return
       }
 
-      // Regular audio/video stream
-      if (hasAudio) {
-        // Setup audio playback
+      // CAMERA/AUDIO STREAM (has audio track in the same stream)
+      console.log('[VoiceCall] → Detected as CAMERA/AUDIO stream')
+
+      // Priority 1: Always setup audio first (most important)
+      if (track.kind === 'audio' || hasAudio) {
         let el = remoteAudioRef.current[peerId]
-        if (!el) { el = new Audio(); el.autoplay = true; el.playsInline = true; remoteAudioRef.current[peerId] = el }
+        if (!el) {
+          el = new Audio()
+          el.autoplay = true
+          el.playsInline = true
+          remoteAudioRef.current[peerId] = el
+        }
         el.srcObject = stream
         startSpeakingDetection(stream, peerId)
+        console.log('[VoiceCall] Audio setup complete for', peerId)
       }
 
-      // Update remote stream (contains both audio+video tracks)
+      // Priority 2: Update video stream
+      const hasVideo = stream.getVideoTracks().length > 0
       setRemoteStreams(prev => ({ ...prev, [peerId]: stream }))
 
       setCallPeers(prev => ({
-        ...prev, [peerId]: {
+        ...prev,
+        [peerId]: {
           connected: true,
           speaking: false,
           muted: prev[peerId]?.muted || false,
@@ -276,13 +284,15 @@ export function useVoiceCall(userId) {
         },
       }))
 
-      // Listen for track add/remove to detect cam toggle
-      stream.onaddtrack = () => {
+      // Listen for track changes
+      stream.onaddtrack = (e) => {
+        console.log('[VoiceCall] Track added to stream:', e.track.kind)
         const vid = stream.getVideoTracks().length > 0
         setCallPeers(prev => prev[peerId] ? { ...prev, [peerId]: { ...prev[peerId], camOff: !vid } } : prev)
         setRemoteStreams(prev => ({ ...prev, [peerId]: stream }))
       }
-      stream.onremovetrack = () => {
+      stream.onremovetrack = (e) => {
+        console.log('[VoiceCall] Track removed from stream:', e.track.kind)
         const vid = stream.getVideoTracks().length > 0
         setCallPeers(prev => prev[peerId] ? { ...prev, [peerId]: { ...prev[peerId], camOff: !vid } } : prev)
         setRemoteStreams(prev => ({ ...prev, [peerId]: stream }))
@@ -692,18 +702,25 @@ export function useVoiceCall(userId) {
         localStreamRef.current.addTrack(videoTrack)
         setLocalStream(new MediaStream(localStreamRef.current.getTracks()))
 
+        // Create a combined stream with audio + video for proper detection on receiver side
+        const combinedStream = new MediaStream(localStreamRef.current.getTracks())
+        console.log('[VoiceCall] Camera ON - combined stream has', combinedStream.getTracks().length, 'tracks')
+
         // Add track to all existing peer connections
         Object.entries(peersRef.current).forEach(([peerId, pc]) => {
           try {
-            pc.addTrack(videoTrack, localStreamRef.current)
-              // Renegotiate
-              ; (async () => {
-                makingOfferRef.current[peerId] = true
-                const offer = await pc.createOffer()
-                await pc.setLocalDescription(offer)
-                sendSignal({ from: userIdRef.current, to: peerId, type: 'offer', sdp: pc.localDescription.sdp, room: callRoomRef.current })
-                makingOfferRef.current[peerId] = false
-              })()
+            // Add video track with the combined stream (contains audio too)
+            pc.addTrack(videoTrack, combinedStream)
+            console.log('[VoiceCall] Added video track to peer:', peerId)
+
+            // Renegotiate
+            ;(async () => {
+              makingOfferRef.current[peerId] = true
+              const offer = await pc.createOffer()
+              await pc.setLocalDescription(offer)
+              sendSignal({ from: userIdRef.current, to: peerId, type: 'offer', sdp: pc.localDescription.sdp, room: callRoomRef.current })
+              makingOfferRef.current[peerId] = false
+            })()
           } catch (e) { console.warn('Add video track failed for', peerId, e) }
         })
 
