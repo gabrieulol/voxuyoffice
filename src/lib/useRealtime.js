@@ -16,7 +16,12 @@ export function useRealtime(userId, profile) {
 
   // Initialize channel
   useEffect(() => {
-    if (!userId || !profile) return
+    if (!userId || !profile) {
+      console.log('[Realtime] Skipping init - userId:', userId, 'profile:', !!profile)
+      return
+    }
+
+    console.log('[Realtime] Initializing channel for user:', userId)
 
     const channel = supabase.channel('stone-hq-office', {
       config: { presence: { key: userId } },
@@ -25,17 +30,20 @@ export function useRealtime(userId, profile) {
     // ─── PRESENCE (position, status, avatar) ───
     channel.on('presence', { event: 'sync' }, () => {
       const state = channel.presenceState()
+      console.log('[Realtime] Presence sync - state:', Object.keys(state))
       const newPeers = {}
       Object.entries(state).forEach(([key, presences]) => {
         if (key === userId) return // skip self
         const p = presences[0] // latest presence
         if (p) newPeers[key] = p
       })
+      console.log('[Realtime] Peers found:', Object.keys(newPeers).length)
       setPeers(newPeers)
     })
 
     // ─── BROADCAST: Chat messages ───
     channel.on('broadcast', { event: 'chat' }, ({ payload }) => {
+      console.log('[Realtime] Received chat from:', payload.senderName)
       if (payload.userId === userId) return // skip own (already added locally)
       setMessages(prev => [...prev.slice(-200), {
         text: payload.text,
@@ -60,20 +68,31 @@ export function useRealtime(userId, profile) {
     })
 
     // Subscribe
-    channel.subscribe(async (status) => {
+    channel.subscribe(async (status, err) => {
+      console.log('[Realtime] Channel status:', status, err ? `Error: ${err.message}` : '')
       if (status === 'SUBSCRIBED') {
-        await channel.track({
-          x: profile.x,
-          y: profile.y,
-          status: profile.status || 'available',
-          display_name: profile.display_name || 'Anônimo',
-          emoji: profile.emoji || '😊',
-          avatar_url: profile.avatar_url || null,
-          role: profile.role || '',
-          team: profile.team || '',
-          activity: profile.activity || 'Online',
-          avatar_idx: profile.avatar_idx ?? 0,
-        })
+        console.log('[Realtime] Tracking presence for:', profile.display_name, 'at', profile.x, profile.y)
+        try {
+          await channel.track({
+            x: profile.x,
+            y: profile.y,
+            status: profile.status || 'available',
+            display_name: profile.display_name || 'Anônimo',
+            emoji: profile.emoji || '😊',
+            avatar_url: profile.avatar_url || null,
+            role: profile.role || '',
+            team: profile.team || '',
+            activity: profile.activity || 'Online',
+            avatar_idx: profile.avatar_idx ?? 0,
+          })
+          console.log('[Realtime] Presence tracked successfully')
+        } catch (trackErr) {
+          console.error('[Realtime] Failed to track presence:', trackErr)
+        }
+      } else if (status === 'CHANNEL_ERROR') {
+        console.error('[Realtime] Channel error:', err)
+      } else if (status === 'TIMED_OUT') {
+        console.error('[Realtime] Channel timed out')
       }
     })
 
@@ -101,6 +120,7 @@ export function useRealtime(userId, profile) {
       })
 
     return () => {
+      console.log('[Realtime] Unsubscribing from channel')
       channel.unsubscribe()
     }
   }, [userId, profile?.display_name]) // only reinit on user change
@@ -108,7 +128,10 @@ export function useRealtime(userId, profile) {
   // Update presence (position, status, etc)
   const updatePresence = useCallback((data) => {
     if (channelRef.current) {
+      console.log('[Realtime] Updating presence:', data.x, data.y, data.display_name)
       channelRef.current.track(data)
+    } else {
+      console.warn('[Realtime] Cannot update presence - channel not ready')
     }
   }, [])
 
