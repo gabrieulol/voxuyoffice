@@ -62,10 +62,13 @@ export default function VoiceCallBar({
   const remoteScreenCount = remoteScreenStreams ? Object.keys(remoteScreenStreams).length : 0
   const hasScreenShare = isScreenSharing || remoteScreenCount > 0
 
-  // Calculate position style
+  // Calculate position style - ensure window stays within viewport
   const positionStyle = position.x !== null
     ? { left: position.x, top: position.y, transform: 'none' }
     : { left: '50%', top: position.y, transform: 'translateX(-50%)' }
+
+  // Calculate max height to stay within viewport
+  const maxHeight = typeof window !== 'undefined' ? window.innerHeight - position.y - 20 : 600
 
   return (
     <div ref={barRef} className="voice-call-bar" style={{
@@ -75,7 +78,9 @@ export default function VoiceCallBar({
       borderRadius: 16, border: `1px solid ${T.accent}33`,
       boxShadow: `0 8px 40px rgba(0,0,0,0.6), 0 0 20px ${T.accent}11`,
       zIndex: 60, animation: 'fadeIn 0.25s ease',
-      minWidth: 280, maxWidth: hasScreenShare && expanded ? 900 : (anyoneHasVideo && expanded ? 700 : 500),
+      minWidth: 320, maxWidth: hasScreenShare && expanded ? 900 : (anyoneHasVideo && expanded ? 700 : 500),
+      maxHeight: expanded ? maxHeight : 'auto',
+      display: 'flex', flexDirection: 'column',
       transition: isDragging ? 'none' : 'max-width 0.3s ease',
       cursor: isDragging ? 'grabbing' : 'default',
     }}>
@@ -117,7 +122,7 @@ export default function VoiceCallBar({
 
       {/* Video Grid + Avatar bubbles */}
       {expanded && callState === 'active' && (
-        <div style={{ padding: '8px 10px' }}>
+        <div style={{ padding: '8px 10px', flex: 1, overflowY: 'auto', minHeight: 0 }}>
           {/* Screen Share Display - Local */}
           {isScreenSharing && (
             <div style={{ marginBottom: 8 }}>
@@ -147,8 +152,6 @@ export default function VoiceCallBar({
               display: 'grid',
               gridTemplateColumns: totalInCall <= 2 ? 'repeat(2, 1fr)' : totalInCall <= 4 ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)',
               gap: 8,
-              maxHeight: 400,
-              overflowY: 'auto',
             }}>
               {/* Self */}
               <VideoTile
@@ -362,8 +365,8 @@ function ScreenShareTile({ stream, label }) {
   const [isMaximized, setIsMaximized] = useState(false)
 
   // Position and size state for floating window
-  const [position, setPosition] = useState({ x: 100, y: 100 })
-  const [size, setSize] = useState({ width: 640, height: 400 })
+  const [position, setPosition] = useState({ x: 50, y: 50 })
+  const [size, setSize] = useState({ width: 900, height: 550 })
   const [isDragging, setIsDragging] = useState(false)
   const [isResizing, setIsResizing] = useState(false)
   const dragOffset = useRef({ x: 0, y: 0 })
@@ -440,12 +443,13 @@ function ScreenShareTile({ stream, label }) {
 
   return (
     <>
-      {/* Inline preview */}
+      {/* Inline preview - larger and resizable */}
       <div style={{
         position: 'relative', borderRadius: 12, overflow: 'hidden',
-        background: '#111', width: '100%', aspectRatio: '16/9',
+        background: '#111', width: '100%', minHeight: 200, aspectRatio: '16/9',
         border: `2px solid ${T.accent}44`,
         cursor: 'pointer',
+        resize: 'both',
       }} onClick={() => { setIsFloating(true); setIsMaximized(false) }}>
         {stream ? (
           <video
