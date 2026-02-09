@@ -560,7 +560,11 @@ export function useVoiceCall(userId) {
   // ─── JOIN ROOM CALL ───
   // autoJoin: when true, starts with camera OFF (for automatic room calls)
   const joinCall = useCallback(async (roomId, existingPeerIds = [], autoJoin = false) => {
-    if (activeRef.current) return
+    if (activeRef.current) {
+      console.log('[VoiceCall] joinCall skipped - already active')
+      return
+    }
+    console.log('[VoiceCall] joinCall starting - room:', roomId, 'existingPeers:', existingPeerIds)
     activeRef.current = true
     setCallState('joining')
     callRoomRef.current = roomId
@@ -570,8 +574,10 @@ export function useVoiceCall(userId) {
       // Broadcast that we joined - peers already in the call will connect to us
       sendSignal({ from: userId, to: '*', type: 'peer-joined', room: roomId })
       // Also try to connect to peers we know are in the room
+      console.log('[VoiceCall] Creating connections to existing peers:', existingPeerIds.filter(pid => pid !== userId))
       existingPeerIds.forEach(pid => {
         if (pid !== userId && !peersRef.current[pid]) {
+          console.log('[VoiceCall] Creating peer connection to:', pid)
           createPeer(pid, true)
         }
       })

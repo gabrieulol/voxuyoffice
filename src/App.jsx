@@ -532,9 +532,12 @@ export default function App() {
               const peopleInRoom = currentPeers.filter(p => {
                 const pRoom = getRoom(p.x, p.y)
                 return pRoom?.id === currentRoomId
-              }).map(p => p.id)
+              })
+              const peerIds = peopleInRoom.map(p => p.id)
+              console.log('[AutoCall] People in room:', peopleInRoom.map(p => ({ id: p.id, name: p.display_name })))
+              console.log('[AutoCall] Peer IDs to connect:', peerIds)
 
-              await doJoinCall(`room-${currentRoomId}`, peopleInRoom, true)
+              await doJoinCall(`room-${currentRoomId}`, peerIds, true)
               setNotification(`🔊 Conectado: ${roomLabel}`)
               setTimeout(() => setNotification(null), 3000)
             } catch (e) {
