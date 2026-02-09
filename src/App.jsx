@@ -942,7 +942,7 @@ export default function App() {
       {/* MAIN */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', background: '#f1f5f9', overflow: 'hidden' }}>
-          <div ref={mapRef} onClick={handleMapClick} style={{ width: mapW, height: mapH, position: 'relative', cursor: 'crosshair', borderRadius: 8, overflow: 'hidden', boxShadow: '0 8px 32px rgba(0,0,0,0.12)', border: '1px solid #e2e8f0' }}>
+          <div ref={mapRef} onDoubleClick={handleMapClick} style={{ width: mapW, height: mapH, position: 'relative', cursor: 'crosshair', borderRadius: 8, overflow: 'hidden', boxShadow: '0 8px 32px rgba(0,0,0,0.12)', border: '1px solid #e2e8f0' }}>
             {MAP.map((row, ry) => row.map((t, rx) => <OfficeTile key={`${rx}-${ry}`} type={t} x={rx} y={ry} />))}
 
             {/* Room Labels */}
