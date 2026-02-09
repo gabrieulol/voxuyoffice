@@ -339,8 +339,11 @@ export function useVoiceCall(userId) {
     if (payload.type === 'peer-joined') {
       console.log('[VoiceCall] Received peer-joined from:', peerId, 'room:', payload.room, 'my room:', callRoomRef.current, 'active:', activeRef.current)
       if (activeRef.current && callRoomRef.current === payload.room && !peersRef.current[peerId]) {
-        console.log('[VoiceCall] Creating peer connection with:', peerId)
-        createPeer(peerId, true)
+        // Only the peer with the HIGHER ID initiates the connection to avoid collision
+        // The peer with lower ID waits to receive the offer
+        const shouldInitiate = userId > peerId
+        console.log('[VoiceCall] Creating peer connection with:', peerId, 'shouldInitiate:', shouldInitiate, '(myId:', userId, ')')
+        createPeer(peerId, shouldInitiate)
 
         // Send our current media state to the new peer after connection is established
         setTimeout(() => {
@@ -574,11 +577,13 @@ export function useVoiceCall(userId) {
       // Broadcast that we joined - peers already in the call will connect to us
       sendSignal({ from: userId, to: '*', type: 'peer-joined', room: roomId })
       // Also try to connect to peers we know are in the room
+      // Only initiate connection if our ID is higher (to avoid collision)
       console.log('[VoiceCall] Creating connections to existing peers:', existingPeerIds.filter(pid => pid !== userId))
       existingPeerIds.forEach(pid => {
         if (pid !== userId && !peersRef.current[pid]) {
-          console.log('[VoiceCall] Creating peer connection to:', pid)
-          createPeer(pid, true)
+          const shouldInitiate = userId > pid
+          console.log('[VoiceCall] Creating peer connection to:', pid, 'shouldInitiate:', shouldInitiate)
+          createPeer(pid, shouldInitiate)
         }
       })
       setCallState('active')
