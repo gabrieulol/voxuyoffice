@@ -244,10 +244,11 @@ function PeopleList({ peersArr, player, onSelect }) {
 }
 
 // ═══════════ AVATAR EDITOR ═══════════
-function AvatarEditor({ currentPhoto, currentEmoji, onSave, onClose }) {
+function AvatarEditor({ currentPhoto, currentEmoji, currentName, onSave, onClose }) {
   const [tab, setTab] = useState(currentPhoto ? 'photo' : 'emoji')
   const [photo, setPhoto] = useState(currentPhoto)
   const [emoji, setEmoji] = useState(currentEmoji || '😊')
+  const [name, setName] = useState(currentName || '')
   const fileRef = useRef(null)
   const [uploading, setUploading] = useState(false)
   const emojis = ['😊', '😎', '🤓', '😄', '😁', '🙂', '🤗', '🥳', '😇', '🤩', '🦊', '🐱', '🐶', '🐸', '🦄', '🐨', '🐼', '🐯', '🦁', '🐺', '🎯', '🔥', '⚡', '🚀', '💎', '🌟', '🎮', '🎸', '☕', '🌿', '🎨', '💻', '📊', '💡', '🛠', '🧪']
@@ -256,11 +257,34 @@ function AvatarEditor({ currentPhoto, currentEmoji, onSave, onClose }) {
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'fadeIn 0.2s ease' }}>
       <div style={{ width: 380, background: T.surface, borderRadius: 20, border: `1px solid ${T.border}`, overflow: 'hidden', boxShadow: '0 30px 80px rgba(0,0,0,0.6)' }}>
-        <div style={{ padding: '16px 20px', borderBottom: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}><span style={{ fontSize: 14, fontWeight: 700, color: T.text, fontFamily: "'JetBrains Mono',monospace" }}>Editar Avatar</span><button onClick={onClose} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${T.border}`, background: 'transparent', color: T.textMuted, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button></div>
+        <div style={{ padding: '16px 20px', borderBottom: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}><span style={{ fontSize: 14, fontWeight: 700, color: T.text, fontFamily: "'JetBrains Mono',monospace" }}>Editar Perfil</span><button onClick={onClose} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${T.border}`, background: 'transparent', color: T.textMuted, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button></div>
         <div style={{ padding: 24, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
           <div style={{ width: 88, height: 88, borderRadius: '50%', border: `3px solid ${T.accent}`, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg,#6366f1,#818cf8)', fontSize: 40, boxShadow: `0 0 20px ${T.accent}33` }}>
             {tab === 'photo' && photo ? <img src={photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span>{emoji}</span>}
           </div>
+          <input
+            type="text"
+            value={name}
+            onChange={e => setName(e.target.value)}
+            placeholder="Seu nome"
+            style={{
+              width: '100%',
+              maxWidth: 220,
+              padding: '10px 16px',
+              borderRadius: 10,
+              border: `2px solid ${T.border}`,
+              background: T.bg,
+              color: T.text,
+              fontSize: 14,
+              fontWeight: 600,
+              textAlign: 'center',
+              outline: 'none',
+              fontFamily: "'Inter', sans-serif",
+              transition: 'border-color 0.2s'
+            }}
+            onFocus={e => e.target.style.borderColor = T.accent}
+            onBlur={e => e.target.style.borderColor = T.border}
+          />
         </div>
         <div style={{ display: 'flex', margin: '0 20px', borderRadius: 10, overflow: 'hidden', border: `1px solid ${T.border}` }}>
           {[{ k: 'photo', l: '📷 Foto' }, { k: 'emoji', l: '😊 Emoji' }].map(t => (
@@ -284,7 +308,7 @@ function AvatarEditor({ currentPhoto, currentEmoji, onSave, onClose }) {
         </div>
         <div style={{ padding: '12px 20px 20px', display: 'flex', gap: 10 }}>
           <button onClick={onClose} style={{ flex: 1, padding: '11px 0', borderRadius: 10, border: `1px solid ${T.border}`, background: 'transparent', color: T.textMuted, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: "'JetBrains Mono',monospace" }}>Cancelar</button>
-          <button onClick={() => onSave({ photo: tab === 'photo' ? photo : null, emoji: tab === 'emoji' ? emoji : currentEmoji })} style={{ flex: 1, padding: '11px 0', borderRadius: 10, border: 'none', background: T.accent, color: T.bg, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: "'JetBrains Mono',monospace" }}>Salvar</button>
+          <button onClick={() => onSave({ photo: tab === 'photo' ? photo : null, emoji: tab === 'emoji' ? emoji : currentEmoji, name: name.trim() || currentName })} style={{ flex: 1, padding: '11px 0', borderRadius: 10, border: 'none', background: T.accent, color: T.bg, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: "'JetBrains Mono',monospace" }}>Salvar</button>
         </div>
       </div>
     </div>
@@ -737,7 +761,7 @@ export default function App() {
     supabase.from('profiles').update({ status: st }).eq('id', user.id)
   }
 
-  const handleAvatarSave = async ({ photo, emoji }) => {
+  const handleAvatarSave = async ({ photo, emoji, name }) => {
     setShowAvatarEditor(false)
 
     let avatarUrl = photo
@@ -784,13 +808,19 @@ export default function App() {
     }
 
     // Update local state
-    setPlayer(p => ({ ...p, avatar_url: avatarUrl, emoji: emoji || p.emoji }))
-    showNotif('✅ Avatar atualizado!')
+    setPlayer(p => ({
+      ...p,
+      avatar_url: avatarUrl,
+      emoji: emoji || p.emoji,
+      display_name: name || p.display_name
+    }))
+    showNotif('✅ Perfil atualizado!')
 
     // Update database
     await supabase.from('profiles').update({
       avatar_url: avatarUrl,
-      emoji: emoji || player.emoji
+      emoji: emoji || player.emoji,
+      display_name: name || player.display_name
     }).eq('id', user.id)
   }
 
@@ -1098,7 +1128,7 @@ export default function App() {
         )
       }
 
-      {showAvatarEditor && <AvatarEditor currentPhoto={player.avatar_url} currentEmoji={player.emoji} onSave={handleAvatarSave} onClose={() => setShowAvatarEditor(false)} />}
+      {showAvatarEditor && <AvatarEditor currentPhoto={player.avatar_url} currentEmoji={player.emoji} currentName={player.display_name} onSave={handleAvatarSave} onClose={() => setShowAvatarEditor(false)} />}
 
       <DeviceSettings
         isOpen={showDeviceSettings}
