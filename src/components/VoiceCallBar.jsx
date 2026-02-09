@@ -12,6 +12,46 @@ export default function VoiceCallBar({
   remoteStreams, remoteScreenStreams, localStream, screenStream,
 }) {
   const [expanded, setExpanded] = useState(true)
+  const [position, setPosition] = useState({ x: null, y: 56 }) // null x = centered
+  const [isDragging, setIsDragging] = useState(false)
+  const dragOffset = useRef({ x: 0, y: 0 })
+  const barRef = useRef(null)
+
+  // Dragging logic
+  const handleMouseDown = (e) => {
+    if (e.target.tagName === 'BUTTON') return // Don't drag when clicking buttons
+    setIsDragging(true)
+    const rect = barRef.current?.getBoundingClientRect()
+    if (rect) {
+      dragOffset.current = {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top
+      }
+    }
+  }
+
+  useEffect(() => {
+    if (!isDragging) return
+
+    const handleMouseMove = (e) => {
+      const newX = e.clientX - dragOffset.current.x
+      const newY = e.clientY - dragOffset.current.y
+      setPosition({
+        x: Math.max(0, Math.min(window.innerWidth - 220, newX)),
+        y: Math.max(0, Math.min(window.innerHeight - 100, newY))
+      })
+    }
+
+    const handleMouseUp = () => setIsDragging(false)
+
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [isDragging])
+
   if (callState === 'idle') return null
 
   const connectedPeers = Object.entries(callPeers).filter(([_, p]) => p.connected)
@@ -22,21 +62,33 @@ export default function VoiceCallBar({
   const remoteScreenCount = remoteScreenStreams ? Object.keys(remoteScreenStreams).length : 0
   const hasScreenShare = isScreenSharing || remoteScreenCount > 0
 
+  // Calculate position style
+  const positionStyle = position.x !== null
+    ? { left: position.x, top: position.y, transform: 'none' }
+    : { left: '50%', top: position.y, transform: 'translateX(-50%)' }
+
   return (
-    <div className="voice-call-bar" style={{
-      position: 'absolute', top: 56, left: '50%', transform: 'translateX(-50%)',
+    <div ref={barRef} className="voice-call-bar" style={{
+      position: 'absolute',
+      ...positionStyle,
       background: 'rgba(0,0,0,0.92)', backdropFilter: 'blur(16px)',
       borderRadius: 16, border: `1px solid ${T.accent}33`,
       boxShadow: `0 8px 40px rgba(0,0,0,0.6), 0 0 20px ${T.accent}11`,
       zIndex: 60, animation: 'fadeIn 0.25s ease',
-      minWidth: 220, maxWidth: hasScreenShare && expanded ? 800 : (anyoneHasVideo && expanded ? 600 : 500),
-      transition: 'max-width 0.3s ease',
+      minWidth: 280, maxWidth: hasScreenShare && expanded ? 900 : (anyoneHasVideo && expanded ? 700 : 500),
+      transition: isDragging ? 'none' : 'max-width 0.3s ease',
+      cursor: isDragging ? 'grabbing' : 'default',
     }}>
-      {/* Header */}
-      <div onClick={() => setExpanded(p => !p)} style={{
-        padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 8,
-        cursor: 'pointer', borderBottom: expanded ? `1px solid ${T.border}` : 'none',
-      }}>
+      {/* Header - Draggable */}
+      <div
+        onMouseDown={handleMouseDown}
+        style={{
+          padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 8,
+          cursor: isDragging ? 'grabbing' : 'grab',
+          borderBottom: expanded ? `1px solid ${T.border}` : 'none',
+          userSelect: 'none',
+        }}
+      >
         <div style={{
           width: 8, height: 8, borderRadius: '50%',
           background: callState === 'active' ? T.accent : T.warn,
@@ -53,7 +105,14 @@ export default function VoiceCallBar({
         <span style={{ fontSize: 9, color: T.textDim, fontFamily: font }}>
           {totalInCall} {totalInCall === 1 ? 'pessoa' : 'pessoas'}
         </span>
-        <span style={{ fontSize: 10, color: T.textDim, transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>▾</span>
+        <button
+          onClick={(e) => { e.stopPropagation(); setExpanded(p => !p) }}
+          style={{
+            background: 'transparent', border: 'none', cursor: 'pointer', padding: '2px 6px',
+            fontSize: 10, color: T.textDim, transform: expanded ? 'rotate(180deg)' : 'none',
+            transition: 'transform 0.2s',
+          }}
+        >▾</button>
       </div>
 
       {/* Video Grid + Avatar bubbles */}
@@ -86,8 +145,10 @@ export default function VoiceCallBar({
           {anyoneHasVideo || hasScreenShare ? (
             <div style={{
               display: 'grid',
-              gridTemplateColumns: totalInCall <= 2 ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)',
-              gap: 6,
+              gridTemplateColumns: totalInCall <= 2 ? 'repeat(2, 1fr)' : totalInCall <= 4 ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)',
+              gap: 8,
+              maxHeight: 400,
+              overflowY: 'auto',
             }}>
               {/* Self */}
               <VideoTile
@@ -227,7 +288,7 @@ function VideoTile({ name, emoji, avatarUrl, avatarIdx, speaking, muted, camOff,
   return (
     <div style={{
       position: 'relative', borderRadius: 12, overflow: 'hidden',
-      background: '#111', aspectRatio: '4/3', minHeight: 80,
+      background: '#111', aspectRatio: '4/3', minWidth: 140, minHeight: 105,
       border: speaking ? `2px solid ${T.accent}` : '2px solid #222',
       transition: 'border-color 0.2s',
     }}>
