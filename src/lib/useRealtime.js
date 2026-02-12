@@ -30,15 +30,44 @@ export function useRealtime(userId, profile) {
     // ─── PRESENCE (position, status, avatar) ───
     channel.on('presence', { event: 'sync' }, () => {
       const state = channel.presenceState()
-      console.log('[Realtime] Presence sync - state:', Object.keys(state))
+      console.log('[Realtime] Presence sync - raw state keys:', Object.keys(state))
       const newPeers = {}
       Object.entries(state).forEach(([key, presences]) => {
         if (key === userId) return // skip self
-        const p = presences[0] // latest presence
-        if (p) newPeers[key] = p
+        // Get the most recent presence (last in array)
+        const p = presences[presences.length - 1]
+        if (p) {
+          console.log('[Realtime] Adding peer:', key, p.display_name, 'at', p.x, p.y)
+          newPeers[key] = p
+        }
       })
-      console.log('[Realtime] Peers found:', Object.keys(newPeers).length)
+      console.log('[Realtime] Peers found after sync:', Object.keys(newPeers).length, Object.keys(newPeers))
       setPeers(newPeers)
+    })
+
+    // Handle individual peer joins (more reliable than sync alone)
+    channel.on('presence', { event: 'join' }, ({ key, newPresences }) => {
+      if (key === userId) return // skip self
+      const p = newPresences[newPresences.length - 1]
+      if (p) {
+        console.log('[Realtime] Peer joined:', key, p.display_name, 'at', p.x, p.y)
+        setPeers(prev => ({ ...prev, [key]: p }))
+      }
+    })
+
+    // Handle individual peer leaves
+    channel.on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
+      if (key === userId) return
+      console.log('[Realtime] Peer left:', key)
+      // Only remove if no presences left for this key
+      const state = channel.presenceState()
+      if (!state[key] || state[key].length === 0) {
+        setPeers(prev => {
+          const next = { ...prev }
+          delete next[key]
+          return next
+        })
+      }
     })
 
     // ─── BROADCAST: Chat messages ───
