@@ -69,13 +69,13 @@ export default function VoiceCallBar({
         let newWidth = initialSize.current.width
         let newHeight = initialSize.current.height
         let newX = position.x !== null ? position.x : initialPos.current.x
+        let newY = position.y
 
         // Handle horizontal resize
         if (resizeEdge.includes('e')) {
           newWidth = Math.max(280, Math.min(1200, initialSize.current.width + deltaX))
         }
         if (resizeEdge.includes('w')) {
-          const widthDelta = Math.min(deltaX, initialSize.current.width - 280)
           newWidth = Math.max(280, Math.min(1200, initialSize.current.width - deltaX))
           newX = initialPos.current.x + (initialSize.current.width - newWidth)
         }
@@ -84,10 +84,17 @@ export default function VoiceCallBar({
         if (resizeEdge.includes('s')) {
           newHeight = Math.max(150, Math.min(window.innerHeight - 40, initialSize.current.height + deltaY))
         }
+        if (resizeEdge.includes('n')) {
+          newHeight = Math.max(150, Math.min(window.innerHeight - 40, initialSize.current.height - deltaY))
+          newY = initialPos.current.y + (initialSize.current.height - newHeight)
+        }
 
         setSize({ width: newWidth, height: newHeight })
-        if (resizeEdge.includes('w')) {
-          setPosition(prev => ({ ...prev, x: Math.max(0, newX) }))
+        if (resizeEdge.includes('w') || resizeEdge.includes('n')) {
+          setPosition(prev => ({
+            x: resizeEdge.includes('w') ? Math.max(0, newX) : prev.x,
+            y: resizeEdge.includes('n') ? Math.max(0, newY) : prev.y
+          }))
         }
       }
     }
@@ -144,12 +151,28 @@ export default function VoiceCallBar({
       {/* Resize handles */}
       {expanded && (
         <>
+          {/* Top edge */}
+          <div
+            onMouseDown={(e) => handleResizeStart(e, 'n')}
+            style={{
+              position: 'absolute', top: -4, left: 20, right: 20, height: 8,
+              cursor: 'ns-resize', zIndex: 10,
+            }}
+          />
           {/* Right edge */}
           <div
             onMouseDown={(e) => handleResizeStart(e, 'e')}
             style={{
               position: 'absolute', right: -4, top: 20, bottom: 20, width: 8,
               cursor: 'ew-resize', zIndex: 10,
+            }}
+          />
+          {/* Bottom edge */}
+          <div
+            onMouseDown={(e) => handleResizeStart(e, 's')}
+            style={{
+              position: 'absolute', bottom: -4, left: 20, right: 20, height: 8,
+              cursor: 'ns-resize', zIndex: 10,
             }}
           />
           {/* Left edge */}
@@ -160,12 +183,20 @@ export default function VoiceCallBar({
               cursor: 'ew-resize', zIndex: 10,
             }}
           />
-          {/* Bottom edge */}
+          {/* Top-left corner */}
           <div
-            onMouseDown={(e) => handleResizeStart(e, 's')}
+            onMouseDown={(e) => handleResizeStart(e, 'nw')}
             style={{
-              position: 'absolute', bottom: -4, left: 20, right: 20, height: 8,
-              cursor: 'ns-resize', zIndex: 10,
+              position: 'absolute', left: -4, top: -4, width: 16, height: 16,
+              cursor: 'nw-resize', zIndex: 11,
+            }}
+          />
+          {/* Top-right corner */}
+          <div
+            onMouseDown={(e) => handleResizeStart(e, 'ne')}
+            style={{
+              position: 'absolute', right: -4, top: -4, width: 16, height: 16,
+              cursor: 'ne-resize', zIndex: 11,
             }}
           />
           {/* Bottom-right corner */}
