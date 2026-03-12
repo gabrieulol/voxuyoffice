@@ -330,6 +330,7 @@ export default function App() {
   const [showDeviceSettings, setShowDeviceSettings] = useState(false)
   const [activeChannel, setActiveChannel] = useState('geral')
   const [chatMinimized, setChatMinimized] = useState(false)
+  const [sidebarHidden, setSidebarHidden] = useState(false)
   const [notification, setNotification] = useState(null)
   const [callError, setCallError] = useState(null)
   const [updateAvailable, setUpdateAvailable] = useState(false)
@@ -439,13 +440,50 @@ export default function App() {
   // Convert peers map to array for rendering
   const peersArr = Object.entries(peers).map(([id, p]) => ({ id, ...p, x: Number(p.x), y: Number(p.y) }))
 
+  // Calculate current room early (needed for auto-join)
+  const currentRoom = player ? getRoom(player.x, player.y) : null
+
+  // Ref for joinCall to be used in auto-join callback (avoids circular dependency)
+  const joinCallRef = useRef(null)
+
+  // Auto-join callback - called when someone enters our room while we're idle
+  const handleAutoJoin = useCallback(async (roomId, triggerPeerId) => {
+    console.log('[App] Auto-join callback triggered for room:', roomId, 'by peer:', triggerPeerId)
+
+    // The joinCall function will be called via ref to avoid circular dependency
+    if (joinCallRef.current) {
+      try {
+        // Find all peers in the room
+        const roomIdClean = roomId.startsWith('room-') ? roomId.replace('room-', '') : roomId
+        const peopleInRoom = peersArr.filter(p => {
+          const pRoom = getRoom(p.x, p.y)
+          return pRoom?.id === roomIdClean
+        })
+        const peerIds = peopleInRoom.map(p => p.id)
+
+        console.log('[App] Auto-joining room:', roomId, 'with peers:', peerIds)
+        await joinCallRef.current(roomId, peerIds, true) // true = autoJoin (camera off)
+
+        setNotification(`🔊 Conectado: ${currentRoom?.label || roomIdClean}`)
+        setTimeout(() => setNotification(null), 3000)
+      } catch (e) {
+        console.warn('[App] Auto-join failed:', e)
+      }
+    }
+  }, [peersArr, currentRoom?.label])
+
   // ─── VOICE CALLS ───
   const {
     callState, callPeers, isMuted: voiceMuted, isCamOff, isScreenSharing, speakingUsers,
     incomingCall, remoteStreams, remoteScreenStreams, localStream, screenStream, selectedDevices,
     joinCall, callPerson, acceptCall, declineCall,
     leaveCall, toggleMute: voiceToggleMute, toggleCamera, toggleScreenShare, changeDevices, callRoom,
-  } = useVoiceCall(user?.id)
+    sendSignal,
+  } = useVoiceCall(user?.id, {
+    currentRoomId: currentRoom?.id,
+    userStatus: player?.status,
+    onAutoJoin: handleAutoJoin,
+  })
 
   // ─── PUSH NOTIFICATIONS ───
   const { isSupported: pushSupported, isSubscribed: pushSubscribed, subscribe: subscribePush, sendPushToUser } = usePushNotifications(user?.id)
@@ -458,7 +496,6 @@ export default function App() {
   }, [pushSupported, pushSubscribed, user?.id, subscribePush])
 
   const nearbyPeople = peersArr.filter(c => player && dist(player, c) <= PROXIMITY_RANGE)
-  const currentRoom = player ? getRoom(player.x, player.y) : null
   const previousRoomRef = useRef(null)
 
   // ─── AUTO-JOIN VOICE CALLS ───
@@ -466,14 +503,13 @@ export default function App() {
   const playerRef = useRef(player)
   const callStateRef = useRef(callState)
   const peersArrRef = useRef(peersArr)
-  const joinCallRef = useRef(joinCall)
   const leaveCallRef = useRef(leaveCall)
   const callRoomRef = useRef(callRoom)
 
   useEffect(() => { playerRef.current = player }, [player])
   useEffect(() => { callStateRef.current = callState }, [callState])
   useEffect(() => { peersArrRef.current = peersArr }, [peersArr])
-  useEffect(() => { joinCallRef.current = joinCall }, [joinCall])
+  useEffect(() => { joinCallRef.current = joinCall }, [joinCall]) // joinCallRef is declared earlier
   useEffect(() => { leaveCallRef.current = leaveCall }, [leaveCall])
   useEffect(() => { callRoomRef.current = callRoom }, [callRoom])
 
@@ -509,7 +545,8 @@ export default function App() {
 
       // ENTERED a room (not hallway) - schedule join
       if (currentRoomId && currentRoomId !== 'hallway' && player.status !== 'busy') {
-        const delay = previousRoomId === null ? 1500 : 800
+        // Increased delays to allow presence to sync properly
+        const delay = previousRoomId === null ? 2000 : 1200
 
         joinTimerRef.current = setTimeout(async () => {
           // Use refs to get current values
@@ -534,8 +571,9 @@ export default function App() {
                 return pRoom?.id === currentRoomId
               })
               const peerIds = peopleInRoom.map(p => p.id)
-              console.log('[AutoCall] People in room:', peopleInRoom.map(p => ({ id: p.id, name: p.display_name })))
+              console.log('[AutoCall] People in room:', peopleInRoom.map(p => ({ id: p.id, name: p.display_name, x: p.x, y: p.y })))
               console.log('[AutoCall] Peer IDs to connect:', peerIds)
+              console.log('[AutoCall] Total peers visible:', currentPeers.length, currentPeers.map(p => ({ id: p.id, name: p.display_name, x: p.x, y: p.y, room: getRoom(p.x, p.y)?.id })))
 
               await doJoinCall(`room-${currentRoomId}`, peerIds, true)
               setNotification(`🔊 Conectado: ${roomLabel}`)
@@ -557,6 +595,45 @@ export default function App() {
       }
     }
   }, [currentRoom?.id, player?.id, user?.id, player?.status])
+
+  // Effect to connect with new peers that appear in our room while we're in a call
+  const previousPeersInRoomRef = useRef([])
+  useEffect(() => {
+    if (!player || callState !== 'active' || !callRoom) return
+
+    // Only for room-based calls (not proximity or direct calls)
+    if (!callRoom.startsWith('room-')) return
+
+    const expectedRoomId = callRoom.replace('room-', '')
+    const currentRoomId = currentRoom?.id
+
+    // Make sure we're still in the same room as the call
+    if (expectedRoomId !== currentRoomId) return
+
+    // Find peers currently in our room
+    const peersInRoom = peersArr.filter(p => {
+      const pRoom = getRoom(p.x, p.y)
+      return pRoom?.id === currentRoomId
+    })
+
+    const currentPeerIds = peersInRoom.map(p => p.id).sort()
+    const previousPeerIds = previousPeersInRoomRef.current.sort()
+
+    // Check if there are new peers
+    const newPeerIds = currentPeerIds.filter(id => !previousPeerIds.includes(id))
+
+    if (newPeerIds.length > 0) {
+      console.log('[AutoCall] New peers detected in room:', newPeerIds)
+      // Send peer-joined again to trigger connection with new peers
+      // The WebRTC signaling will handle the actual connection
+      newPeerIds.forEach(peerId => {
+        // Signal that we want to connect
+        sendSignal({ from: user.id, to: peerId, type: 'peer-joined', room: callRoom })
+      })
+    }
+
+    previousPeersInRoomRef.current = currentPeerIds
+  }, [peersArr, callState, callRoom, currentRoom?.id, player, user?.id, sendSignal])
 
   // Separate effect for proximity calls in hallway
   const previousNearbyRef = useRef([])
@@ -943,7 +1020,7 @@ export default function App() {
       </header>
 
       {/* MAIN */}
-      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' }}>
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', background: '#f1f5f9', overflow: 'hidden' }}>
           <div ref={mapRef} onDoubleClick={handleMapClick} style={{ width: mapW, height: mapH, position: 'relative', cursor: 'crosshair', borderRadius: 8, overflow: 'hidden', boxShadow: '0 8px 32px rgba(0,0,0,0.12)', border: '1px solid #e2e8f0' }}>
             {MAP.map((row, ry) => row.map((t, rx) => <OfficeTile key={`${rx}-${ry}`} type={t} x={rx} y={ry} />))}
@@ -1090,8 +1167,50 @@ export default function App() {
           </div>
         </div>
 
+        {/* SIDEBAR TOGGLE BUTTON */}
+        <button
+          onClick={() => setSidebarHidden(!sidebarHidden)}
+          style={{
+            position: 'absolute',
+            right: sidebarHidden ? 0 : 280,
+            top: '50%',
+            transform: 'translateY(-50%)',
+            width: 24,
+            height: 60,
+            border: `1px solid ${T.border}`,
+            borderRight: sidebarHidden ? `1px solid ${T.border}` : 'none',
+            borderRadius: sidebarHidden ? '8px 0 0 8px' : '8px 0 0 8px',
+            background: T.surface,
+            color: T.textDim,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 12,
+            zIndex: 50,
+            transition: 'right 0.3s ease, background 0.2s',
+            boxShadow: '-2px 0 8px rgba(0,0,0,0.1)',
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = T.surfaceHover || T.border}
+          onMouseLeave={e => e.currentTarget.style.background = T.surface}
+          title={sidebarHidden ? 'Mostrar painel' : 'Ocultar painel'}
+        >
+          {sidebarHidden ? '◂' : '▸'}
+        </button>
+
         {/* SIDEBAR */}
-        <div style={{ width: 280, borderLeft: `1px solid ${T.border}`, display: 'flex', flexDirection: 'column', background: T.bg, flexShrink: 0 }}>
+        <div style={{
+          width: 280,
+          borderLeft: `1px solid ${T.border}`,
+          display: 'flex',
+          flexDirection: 'column',
+          background: T.bg,
+          flexShrink: 0,
+          transform: sidebarHidden ? 'translateX(100%)' : 'translateX(0)',
+          marginRight: sidebarHidden ? -280 : 0,
+          transition: 'transform 0.3s ease, margin-right 0.3s ease',
+          position: 'relative',
+        }}>
           <div style={{ display: 'flex', borderBottom: `1px solid ${T.border}` }}>
             {[{ key: 'chat', label: 'Chat', icon: '◈' }, { key: 'people', label: 'Pessoas', icon: '◉' }].map(t => (
               <button key={t.key} onClick={() => setRightPanel(t.key)} style={{ flex: 1, padding: '10px 0', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 10, fontWeight: 700, color: rightPanel === t.key ? T.accent : T.textDim, borderBottom: rightPanel === t.key ? `2px solid ${T.accent}` : '2px solid transparent', fontFamily: "'JetBrains Mono',monospace", letterSpacing: '0.06em' }}>{t.icon} {t.label}</button>

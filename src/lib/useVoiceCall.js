@@ -78,7 +78,10 @@ function stopRingtone() {
   }
 }
 
-export function useVoiceCall(userId) {
+export function useVoiceCall(userId, options = {}) {
+  // Options for auto-join when someone enters our room
+  const { currentRoomId, userStatus, onAutoJoin } = options
+
   const [callState, setCallState] = useState('idle')
   const [callPeers, setCallPeers] = useState({})       // { peerId: { connected, speaking, muted, camOff, screenSharing } }
   const [isMuted, setIsMuted] = useState(false)
@@ -109,10 +112,21 @@ export function useVoiceCall(userId) {
   const activeRef = useRef(false)
   const userIdRef = useRef(userId)
   const isCamOffRef = useRef(false)
+  const isMutedRef = useRef(false)
   const isScreenSharingRef = useRef(false)
   const screenSharePeersRef = useRef(new Set()) // peers currently sharing screen
   const pendingIceCandidatesRef = useRef({}) // Buffer for ICE candidates that arrive before remote description
+  const peerVideoTracksRef = useRef({}) // Track which video tracks we've received from each peer { peerId: Set<trackId> }
+  const autoJoinInProgressRef = useRef(false) // Prevent multiple auto-joins
   userIdRef.current = userId
+
+  // Keep refs updated for use in callbacks
+  const currentRoomIdRef = useRef(currentRoomId)
+  const userStatusRef = useRef(userStatus)
+  const onAutoJoinRef = useRef(onAutoJoin)
+  currentRoomIdRef.current = currentRoomId
+  userStatusRef.current = userStatus
+  onAutoJoinRef.current = onAutoJoin
 
   // ─── SPEAKING DETECTION ───
   const startSpeakingDetection = useCallback((stream, peerId) => {
@@ -166,9 +180,14 @@ export function useVoiceCall(userId) {
     if (audio) { audio.srcObject = null; delete remoteAudioRef.current[peerId] }
     // Clear pending ICE candidates
     delete pendingIceCandidatesRef.current[peerId]
+    // Clear video track tracking
+    delete peerVideoTracksRef.current[peerId]
+    // Clear screen share tracking
+    screenSharePeersRef.current.delete(peerId)
     stopSpeakingDetection(peerId)
     setCallPeers(prev => { const n = { ...prev }; delete n[peerId]; return n })
     setRemoteStreams(prev => { const n = { ...prev }; delete n[peerId]; return n })
+    setRemoteScreenStreams(prev => { const n = { ...prev }; delete n[peerId]; return n })
   }, [stopSpeakingDetection])
 
   // ─── CREATE PEER ───
@@ -210,7 +229,19 @@ export function useVoiceCall(userId) {
     }
 
     pc.onconnectionstatechange = () => {
-      if (pc.connectionState === 'connected') setCallPeers(prev => ({ ...prev, [peerId]: { ...prev[peerId], connected: true } }))
+      console.log('[VoiceCall] Connection state changed for', peerId, ':', pc.connectionState)
+      if (pc.connectionState === 'connected') {
+        setCallPeers(prev => ({ ...prev, [peerId]: { ...prev[peerId], connected: true } }))
+
+        // When connection is established, send all our current media states
+        // This ensures the new peer sees our correct state
+        console.log('[VoiceCall] Connection established with', peerId, '- sending media states')
+        sendSignal({ from: userIdRef.current, to: peerId, type: 'mute-state', muted: isMutedRef.current, room: callRoomRef.current })
+        sendSignal({ from: userIdRef.current, to: peerId, type: 'cam-state', camOff: isCamOffRef.current, room: callRoomRef.current })
+        if (isScreenSharingRef.current) {
+          sendSignal({ from: userIdRef.current, to: peerId, type: 'screen-state', sharing: true, room: callRoomRef.current })
+        }
+      }
       else if (['disconnected', 'failed', 'closed'].includes(pc.connectionState)) cleanupPeer(peerId)
     }
 
@@ -224,19 +255,40 @@ export function useVoiceCall(userId) {
 
       console.log('[VoiceCall] ontrack from', peerId, '- kind:', track.kind, 'label:', track.label, 'streamId:', streamId, 'hasAudio:', hasAudio)
 
-      // IMPROVED DETECTION: Screen share streams DON'T have audio, camera streams DO
-      // This is the most reliable way to differentiate
-      const isScreenShareByStream = track.kind === 'video' && !hasAudio
-
-      // Also check label hints as backup
-      const screenLabelHints = ['screen', 'window', 'display', 'monitor', 'tab', 'entire']
+      // SCREEN SHARE DETECTION: Use track label AND peer signal to detect screen shares
+      // Camera labels can contain "display" (e.g., "FaceTime HD Camera (Display)"), so we need to be careful
+      const screenLabelHints = ['screen', 'window', 'tab', 'entire']
+      const cameraLabelHints = ['camera', 'webcam', 'facetime', 'cam', 'integrated', 'usb', 'hd pro', 'logitech', 'obs', 'built-in']
       const label = (track.label || '').toLowerCase()
-      const isScreenShareByLabel = track.kind === 'video' && screenLabelHints.some(h => label.includes(h))
 
-      const isScreenShareTrack = isScreenShareByStream || isScreenShareByLabel
+      // Check if label suggests it's a camera (cameras should NOT be treated as screen share)
+      const looksLikeCamera = cameraLabelHints.some(h => label.includes(h))
+
+      // Check if label clearly suggests it's a screen share (NOT a camera)
+      const looksLikeScreenShare = track.kind === 'video' && screenLabelHints.some(h => label.includes(h)) && !looksLikeCamera
+
+      // Check if peer has signaled they're sharing (via screen-state message)
+      const peerIsSharing = screenSharePeersRef.current.has(peerId)
+
+      // Track video tracks per peer to detect if this is a second video (screen share)
+      let isScreenShareTrack = false
+      if (track.kind === 'video') {
+        if (!peerVideoTracksRef.current[peerId]) {
+          peerVideoTracksRef.current[peerId] = new Set()
+        }
+        const isSecondVideoTrack = peerVideoTracksRef.current[peerId].size > 0 && !peerVideoTracksRef.current[peerId].has(track.id)
+        peerVideoTracksRef.current[peerId].add(track.id)
+
+        // Treat as screen share ONLY if:
+        // 1. Label clearly indicates screen share (and NOT a camera), OR
+        // 2. Peer has signaled they're sharing AND this is a second video track (first was camera)
+        isScreenShareTrack = looksLikeScreenShare || (peerIsSharing && isSecondVideoTrack)
+
+        console.log('[VoiceCall] Video track analysis - label:', label, 'looksLikeCamera:', looksLikeCamera, 'looksLikeScreenShare:', looksLikeScreenShare, 'peerIsSharing:', peerIsSharing, 'isSecondVideoTrack:', isSecondVideoTrack, 'isScreenShare:', isScreenShareTrack)
+      }
 
       if (isScreenShareTrack) {
-        console.log('[VoiceCall] → Detected as SCREEN SHARE (byStream:', isScreenShareByStream, 'byLabel:', isScreenShareByLabel, ')')
+        console.log('[VoiceCall] → Detected as SCREEN SHARE')
 
         const screenOnlyStream = new MediaStream([track])
         setRemoteScreenStreams(prev => ({ ...prev, [peerId]: screenOnlyStream }))
@@ -248,15 +300,19 @@ export function useVoiceCall(userId) {
           setRemoteScreenStreams(prev => { const n = { ...prev }; delete n[peerId]; return n })
           setCallPeers(prev => prev[peerId] ? { ...prev, [peerId]: { ...prev[peerId], screenSharing: false } } : prev)
           screenSharePeersRef.current.delete(peerId)
+          // Also remove this track from tracking
+          if (peerVideoTracksRef.current[peerId]) {
+            peerVideoTracksRef.current[peerId].delete(track.id)
+          }
         }
         return
       }
 
-      // CAMERA/AUDIO STREAM (has audio track in the same stream)
+      // CAMERA/AUDIO STREAM - this is the default
       console.log('[VoiceCall] → Detected as CAMERA/AUDIO stream')
 
-      // Priority 1: Always setup audio first (most important)
-      if (track.kind === 'audio' || hasAudio) {
+      // Setup audio if this track is audio
+      if (track.kind === 'audio') {
         let el = remoteAudioRef.current[peerId]
         if (!el) {
           el = new Audio()
@@ -269,22 +325,41 @@ export function useVoiceCall(userId) {
         console.log('[VoiceCall] Audio setup complete for', peerId)
       }
 
-      // Priority 2: Update video stream
-      const hasVideo = stream.getVideoTracks().length > 0
-      setRemoteStreams(prev => ({ ...prev, [peerId]: stream }))
+      // For video tracks, update the remote stream
+      if (track.kind === 'video') {
+        setRemoteStreams(prev => ({ ...prev, [peerId]: stream }))
+        setCallPeers(prev => ({
+          ...prev,
+          [peerId]: {
+            connected: true,
+            speaking: prev[peerId]?.speaking || false,
+            muted: prev[peerId]?.muted || false,
+            camOff: false, // We received a video track, so camera is on
+            screenSharing: prev[peerId]?.screenSharing || false
+          },
+        }))
 
-      setCallPeers(prev => ({
-        ...prev,
-        [peerId]: {
-          connected: true,
-          speaking: false,
-          muted: prev[peerId]?.muted || false,
-          camOff: !hasVideo,
-          screenSharing: prev[peerId]?.screenSharing || false
-        },
-      }))
+        // Track ended - remove from tracking
+        track.onended = () => {
+          if (peerVideoTracksRef.current[peerId]) {
+            peerVideoTracksRef.current[peerId].delete(track.id)
+          }
+        }
+      } else {
+        // Audio-only track
+        setCallPeers(prev => ({
+          ...prev,
+          [peerId]: {
+            connected: true,
+            speaking: prev[peerId]?.speaking || false,
+            muted: prev[peerId]?.muted || false,
+            camOff: prev[peerId]?.camOff ?? true, // Keep previous camOff state or default to true
+            screenSharing: prev[peerId]?.screenSharing || false
+          },
+        }))
+      }
 
-      // Listen for track changes
+      // Listen for track changes on the stream
       stream.onaddtrack = (e) => {
         console.log('[VoiceCall] Track added to stream:', e.track.kind)
         const vid = stream.getVideoTracks().length > 0
@@ -338,7 +413,64 @@ export function useVoiceCall(userId) {
 
     if (payload.type === 'peer-joined') {
       console.log('[VoiceCall] Received peer-joined from:', peerId, 'room:', payload.room, 'my room:', callRoomRef.current, 'active:', activeRef.current)
-      if (activeRef.current && callRoomRef.current === payload.room && !peersRef.current[peerId]) {
+
+      // Extract room ID from the payload (format: "room-{roomId}")
+      const payloadRoomId = payload.room?.startsWith('room-') ? payload.room.replace('room-', '') : null
+
+      // AUTO-JOIN: If we're not in a call but someone joined our room, auto-join!
+      // This allows hearing people even when browser is minimized
+      if (!activeRef.current && payloadRoomId && !autoJoinInProgressRef.current) {
+        const myRoomId = currentRoomIdRef.current
+        const myStatus = userStatusRef.current
+        const autoJoinCallback = onAutoJoinRef.current
+
+        console.log('[VoiceCall] Auto-join check - payloadRoom:', payloadRoomId, 'myRoom:', myRoomId, 'myStatus:', myStatus)
+
+        // Check if we should auto-join:
+        // 1. We're in the same room as the caller
+        // 2. We're not busy
+        // 3. The room is not the hallway
+        if (myRoomId && myRoomId === payloadRoomId && myStatus !== 'busy' && myRoomId !== 'hallway') {
+          console.log('[VoiceCall] AUTO-JOIN triggered! Someone entered our room:', payloadRoomId)
+          autoJoinInProgressRef.current = true
+
+          // Call the auto-join callback if provided (this will call joinCall from App.jsx)
+          if (autoJoinCallback) {
+            autoJoinCallback(payload.room, peerId)
+          }
+
+          // Reset flag after a delay to allow the join to complete
+          setTimeout(() => {
+            autoJoinInProgressRef.current = false
+          }, 3000)
+        }
+        return
+      }
+
+      // If we're already active but in a different room, skip
+      if (activeRef.current && callRoomRef.current !== payload.room) {
+        console.log('[VoiceCall] Skipping peer-joined - different room')
+        return
+      }
+
+      // If we're not active and auto-join didn't trigger, skip
+      if (!activeRef.current) {
+        console.log('[VoiceCall] Skipping peer-joined - not active')
+        return
+      }
+
+      // Check if we already have a connection and if it's healthy
+      const existingPc = peersRef.current[peerId]
+      const connectionState = existingPc?.connectionState
+      const needsReconnect = !existingPc || connectionState === 'failed' || connectionState === 'disconnected' || connectionState === 'closed'
+
+      if (needsReconnect) {
+        // Clean up old connection if it exists but is broken
+        if (existingPc) {
+          console.log('[VoiceCall] Cleaning up broken connection with:', peerId, 'state:', connectionState)
+          cleanupPeer(peerId)
+        }
+
         // Only the peer with the HIGHER ID initiates the connection to avoid collision
         // The peer with lower ID waits to receive the offer
         const shouldInitiate = userId > peerId
@@ -347,6 +479,10 @@ export function useVoiceCall(userId) {
 
         // Send our current media state to the new peer after connection is established
         setTimeout(() => {
+          // Notify about mute state
+          sendSignal({ from: userId, to: peerId, type: 'mute-state', muted: isMutedRef.current, room: callRoomRef.current })
+          console.log('[VoiceCall] Sent mute-state to new peer:', peerId, 'muted:', isMutedRef.current)
+
           // Notify about camera state
           sendSignal({ from: userId, to: peerId, type: 'cam-state', camOff: isCamOffRef.current, room: callRoomRef.current })
           console.log('[VoiceCall] Sent cam-state to new peer:', peerId, 'camOff:', isCamOffRef.current)
@@ -358,7 +494,7 @@ export function useVoiceCall(userId) {
           }
         }, 500)
       } else {
-        console.log('[VoiceCall] Skipping peer-joined - conditions not met. active:', activeRef.current, 'sameRoom:', callRoomRef.current === payload.room, 'alreadyConnected:', !!peersRef.current[peerId])
+        console.log('[VoiceCall] Connection already exists and is healthy with:', peerId, 'state:', connectionState)
       }
       return
     }
@@ -660,8 +796,9 @@ export function useVoiceCall(userId) {
     Object.keys(analyserRef.current).forEach(stopSpeakingDetection)
     callRoomRef.current = null
     setCallState('idle'); setCallPeers({}); setIsMuted(false); setIsCamOff(false)
+    isMutedRef.current = false
     isCamOffRef.current = false
-    setSpeakingUsers(new Set()); setRemoteStreams({})
+    setSpeakingUsers(new Set()); setRemoteStreams({}); setRemoteScreenStreams({})
   }, [userId, cleanupPeer, stopSpeakingDetection, sendSignal])
 
   // ─── TOGGLE MUTE ───
@@ -691,6 +828,7 @@ export function useVoiceCall(userId) {
       }
     })
 
+    isMutedRef.current = newMuted
     setIsMuted(newMuted)
     sendSignal({ from: userId, to: '*', type: 'mute-state', muted: newMuted, room: callRoomRef.current })
   }, [isMuted, userId, sendSignal])
@@ -883,5 +1021,6 @@ export function useVoiceCall(userId) {
     remoteStreams, remoteScreenStreams, localStream, screenStream, selectedDevices,
     joinCall, callPerson, acceptCall, declineCall, leaveCall,
     toggleMute, toggleCamera, toggleScreenShare, changeDevices, callRoom: callRoomRef.current,
+    sendSignal, // Expose for manual peer connection triggers
   }
 }

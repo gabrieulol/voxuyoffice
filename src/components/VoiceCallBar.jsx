@@ -13,8 +13,13 @@ export default function VoiceCallBar({
 }) {
   const [expanded, setExpanded] = useState(true)
   const [position, setPosition] = useState({ x: null, y: 56 }) // null x = centered
+  const [size, setSize] = useState({ width: 400, height: null }) // null height = auto
   const [isDragging, setIsDragging] = useState(false)
+  const [isResizing, setIsResizing] = useState(false)
+  const [resizeEdge, setResizeEdge] = useState(null) // 'e', 'w', 's', 'se', 'sw', etc.
   const dragOffset = useRef({ x: 0, y: 0 })
+  const initialSize = useRef({ width: 0, height: 0 })
+  const initialPos = useRef({ x: 0, y: 0 })
   const barRef = useRef(null)
 
   // Dragging logic
@@ -30,19 +35,68 @@ export default function VoiceCallBar({
     }
   }
 
+  // Resize logic
+  const handleResizeStart = (e, edge) => {
+    e.stopPropagation()
+    e.preventDefault()
+    setIsResizing(true)
+    setResizeEdge(edge)
+    const rect = barRef.current?.getBoundingClientRect()
+    if (rect) {
+      initialSize.current = { width: rect.width, height: rect.height }
+      initialPos.current = { x: rect.left, y: rect.top }
+      dragOffset.current = { x: e.clientX, y: e.clientY }
+    }
+  }
+
   useEffect(() => {
-    if (!isDragging) return
+    if (!isDragging && !isResizing) return
 
     const handleMouseMove = (e) => {
-      const newX = e.clientX - dragOffset.current.x
-      const newY = e.clientY - dragOffset.current.y
-      setPosition({
-        x: Math.max(0, Math.min(window.innerWidth - 220, newX)),
-        y: Math.max(0, Math.min(window.innerHeight - 100, newY))
-      })
+      if (isDragging) {
+        const newX = e.clientX - dragOffset.current.x
+        const newY = e.clientY - dragOffset.current.y
+        setPosition({
+          x: Math.max(0, Math.min(window.innerWidth - 220, newX)),
+          y: Math.max(0, Math.min(window.innerHeight - 100, newY))
+        })
+      }
+
+      if (isResizing && resizeEdge) {
+        const deltaX = e.clientX - dragOffset.current.x
+        const deltaY = e.clientY - dragOffset.current.y
+
+        let newWidth = initialSize.current.width
+        let newHeight = initialSize.current.height
+        let newX = position.x !== null ? position.x : initialPos.current.x
+
+        // Handle horizontal resize
+        if (resizeEdge.includes('e')) {
+          newWidth = Math.max(280, Math.min(1200, initialSize.current.width + deltaX))
+        }
+        if (resizeEdge.includes('w')) {
+          const widthDelta = Math.min(deltaX, initialSize.current.width - 280)
+          newWidth = Math.max(280, Math.min(1200, initialSize.current.width - deltaX))
+          newX = initialPos.current.x + (initialSize.current.width - newWidth)
+        }
+
+        // Handle vertical resize
+        if (resizeEdge.includes('s')) {
+          newHeight = Math.max(150, Math.min(window.innerHeight - 40, initialSize.current.height + deltaY))
+        }
+
+        setSize({ width: newWidth, height: newHeight })
+        if (resizeEdge.includes('w')) {
+          setPosition(prev => ({ ...prev, x: Math.max(0, newX) }))
+        }
+      }
     }
 
-    const handleMouseUp = () => setIsDragging(false)
+    const handleMouseUp = () => {
+      setIsDragging(false)
+      setIsResizing(false)
+      setResizeEdge(null)
+    }
 
     window.addEventListener('mousemove', handleMouseMove)
     window.addEventListener('mouseup', handleMouseUp)
@@ -50,7 +104,7 @@ export default function VoiceCallBar({
       window.removeEventListener('mousemove', handleMouseMove)
       window.removeEventListener('mouseup', handleMouseUp)
     }
-  }, [isDragging])
+  }, [isDragging, isResizing, resizeEdge, position.x])
 
   if (callState === 'idle') return null
 
@@ -78,12 +132,61 @@ export default function VoiceCallBar({
       borderRadius: 16, border: `1px solid ${T.accent}33`,
       boxShadow: `0 8px 40px rgba(0,0,0,0.6), 0 0 20px ${T.accent}11`,
       zIndex: 60, animation: 'fadeIn 0.25s ease',
-      minWidth: 320, maxWidth: hasScreenShare && expanded ? 900 : (anyoneHasVideo && expanded ? 700 : 500),
+      width: size.width,
+      minWidth: 280,
+      maxWidth: 1200,
+      height: expanded && size.height ? size.height : 'auto',
       maxHeight: expanded ? maxHeight : 'auto',
       display: 'flex', flexDirection: 'column',
-      transition: isDragging ? 'none' : 'max-width 0.3s ease',
+      transition: (isDragging || isResizing) ? 'none' : 'box-shadow 0.3s ease',
       cursor: isDragging ? 'grabbing' : 'default',
     }}>
+      {/* Resize handles */}
+      {expanded && (
+        <>
+          {/* Right edge */}
+          <div
+            onMouseDown={(e) => handleResizeStart(e, 'e')}
+            style={{
+              position: 'absolute', right: -4, top: 20, bottom: 20, width: 8,
+              cursor: 'ew-resize', zIndex: 10,
+            }}
+          />
+          {/* Left edge */}
+          <div
+            onMouseDown={(e) => handleResizeStart(e, 'w')}
+            style={{
+              position: 'absolute', left: -4, top: 20, bottom: 20, width: 8,
+              cursor: 'ew-resize', zIndex: 10,
+            }}
+          />
+          {/* Bottom edge */}
+          <div
+            onMouseDown={(e) => handleResizeStart(e, 's')}
+            style={{
+              position: 'absolute', bottom: -4, left: 20, right: 20, height: 8,
+              cursor: 'ns-resize', zIndex: 10,
+            }}
+          />
+          {/* Bottom-right corner */}
+          <div
+            onMouseDown={(e) => handleResizeStart(e, 'se')}
+            style={{
+              position: 'absolute', right: -4, bottom: -4, width: 16, height: 16,
+              cursor: 'se-resize', zIndex: 11,
+            }}
+          />
+          {/* Bottom-left corner */}
+          <div
+            onMouseDown={(e) => handleResizeStart(e, 'sw')}
+            style={{
+              position: 'absolute', left: -4, bottom: -4, width: 16, height: 16,
+              cursor: 'sw-resize', zIndex: 11,
+            }}
+          />
+        </>
+      )}
+
       {/* Header - Draggable */}
       <div
         onMouseDown={handleMouseDown}
@@ -92,6 +195,7 @@ export default function VoiceCallBar({
           cursor: isDragging ? 'grabbing' : 'grab',
           borderBottom: expanded ? `1px solid ${T.border}` : 'none',
           userSelect: 'none',
+          flexShrink: 0,
         }}
       >
         <div style={{
@@ -104,7 +208,7 @@ export default function VoiceCallBar({
           {callState === 'joining' ? 'Conectando...' : (() => {
             const roomId = callRoom?.replace('room-', '')
             const room = ROOMS.find(r => r.id === roomId)
-            return room ? room.label : '🔊 Chamada'
+            return room ? room.label : 'Chamada'
           })()}
         </span>
         <span style={{ fontSize: 9, color: T.textDim, fontFamily: font }}>
@@ -129,6 +233,13 @@ export default function VoiceCallBar({
               <ScreenShareTile
                 stream={screenStream}
                 label="Sua tela"
+                isMuted={isMuted}
+                isCamOff={isCamOff}
+                isScreenSharing={isScreenSharing}
+                onToggleMute={onToggleMute}
+                onToggleCamera={onToggleCamera}
+                onToggleScreenShare={onToggleScreenShare}
+                onLeaveCall={onLeaveCall}
               />
             </div>
           )}
@@ -142,6 +253,13 @@ export default function VoiceCallBar({
                 <ScreenShareTile
                   stream={stream}
                   label={`Tela de ${peerName}`}
+                  isMuted={isMuted}
+                  isCamOff={isCamOff}
+                  isScreenSharing={isScreenSharing}
+                  onToggleMute={onToggleMute}
+                  onToggleCamera={onToggleCamera}
+                  onToggleScreenShare={onToggleScreenShare}
+                  onLeaveCall={onLeaveCall}
                 />
               </div>
             )
@@ -200,6 +318,7 @@ export default function VoiceCallBar({
       <div style={{
         padding: '8px 14px', display: 'flex', gap: 6, justifyContent: 'center',
         borderTop: expanded ? `1px solid ${T.border}` : 'none',
+        flexShrink: 0,
       }}>
         <CallBtn active={!isMuted} danger={isMuted} onClick={onToggleMute} icon={isMuted ? '🔇' : '🎙'} label={isMuted ? 'Mutado' : 'Mic'} />
         <CallBtn active={!isCamOff} onClick={onToggleCamera} icon={isCamOff ? '📵' : '📹'} label={isCamOff ? 'Cam off' : 'Cam'} />
@@ -358,9 +477,10 @@ function AvatarBubble({ name, emoji, avatarUrl, avatarIdx, speaking, muted }) {
 }
 
 // ─── Screen Share Tile ───
-function ScreenShareTile({ stream, label }) {
+function ScreenShareTile({ stream, label, isMuted, isCamOff, isScreenSharing, onToggleMute, onToggleCamera, onToggleScreenShare, onLeaveCall }) {
   const videoRef = useRef(null)
   const floatVideoRef = useRef(null)
+  const floatWindowRef = useRef(null)
   const [isFloating, setIsFloating] = useState(false)
   const [isMaximized, setIsMaximized] = useState(false)
 
@@ -369,7 +489,10 @@ function ScreenShareTile({ stream, label }) {
   const [size, setSize] = useState({ width: 900, height: 550 })
   const [isDragging, setIsDragging] = useState(false)
   const [isResizing, setIsResizing] = useState(false)
+  const [resizeEdge, setResizeEdge] = useState(null)
   const dragOffset = useRef({ x: 0, y: 0 })
+  const initialSize = useRef({ width: 0, height: 0 })
+  const initialPos = useRef({ x: 0, y: 0 })
 
   useEffect(() => {
     if (videoRef.current && stream) {
@@ -398,6 +521,7 @@ function ScreenShareTile({ stream, label }) {
 
   // Dragging logic
   const handleMouseDown = (e) => {
+    if (e.target.tagName === 'BUTTON') return
     if (isMaximized) return
     setIsDragging(true)
     dragOffset.current = {
@@ -406,40 +530,72 @@ function ScreenShareTile({ stream, label }) {
     }
   }
 
-  const handleMouseMove = (e) => {
-    if (isDragging) {
-      setPosition({
-        x: Math.max(0, Math.min(window.innerWidth - size.width, e.clientX - dragOffset.current.x)),
-        y: Math.max(0, Math.min(window.innerHeight - size.height, e.clientY - dragOffset.current.y))
-      })
-    }
-    if (isResizing) {
-      const newWidth = Math.max(320, e.clientX - position.x)
-      const newHeight = Math.max(200, e.clientY - position.y)
-      setSize({ width: newWidth, height: newHeight })
-    }
-  }
-
-  const handleMouseUp = () => {
-    setIsDragging(false)
-    setIsResizing(false)
+  // Resize start
+  const handleResizeStart = (e, edge) => {
+    e.stopPropagation()
+    e.preventDefault()
+    setIsResizing(true)
+    setResizeEdge(edge)
+    initialSize.current = { width: size.width, height: size.height }
+    initialPos.current = { x: position.x, y: position.y }
+    dragOffset.current = { x: e.clientX, y: e.clientY }
   }
 
   useEffect(() => {
-    if (isDragging || isResizing) {
-      window.addEventListener('mousemove', handleMouseMove)
-      window.addEventListener('mouseup', handleMouseUp)
-      return () => {
-        window.removeEventListener('mousemove', handleMouseMove)
-        window.removeEventListener('mouseup', handleMouseUp)
+    if (!isDragging && !isResizing) return
+
+    const handleMouseMove = (e) => {
+      if (isDragging) {
+        setPosition({
+          x: Math.max(0, Math.min(window.innerWidth - size.width, e.clientX - dragOffset.current.x)),
+          y: Math.max(0, Math.min(window.innerHeight - size.height, e.clientY - dragOffset.current.y))
+        })
+      }
+      if (isResizing && resizeEdge) {
+        const deltaX = e.clientX - dragOffset.current.x
+        const deltaY = e.clientY - dragOffset.current.y
+
+        let newWidth = initialSize.current.width
+        let newHeight = initialSize.current.height
+        let newX = initialPos.current.x
+        let newY = initialPos.current.y
+
+        // Handle horizontal resize
+        if (resizeEdge.includes('e')) {
+          newWidth = Math.max(320, Math.min(window.innerWidth - 20, initialSize.current.width + deltaX))
+        }
+        if (resizeEdge.includes('w')) {
+          newWidth = Math.max(320, Math.min(window.innerWidth - 20, initialSize.current.width - deltaX))
+          newX = initialPos.current.x + (initialSize.current.width - newWidth)
+        }
+
+        // Handle vertical resize
+        if (resizeEdge.includes('s')) {
+          newHeight = Math.max(200, Math.min(window.innerHeight - 20, initialSize.current.height + deltaY))
+        }
+        if (resizeEdge.includes('n')) {
+          newHeight = Math.max(200, Math.min(window.innerHeight - 20, initialSize.current.height - deltaY))
+          newY = initialPos.current.y + (initialSize.current.height - newHeight)
+        }
+
+        setSize({ width: newWidth, height: newHeight })
+        setPosition({ x: Math.max(0, newX), y: Math.max(0, newY) })
       }
     }
-  }, [isDragging, isResizing, position, size])
 
-  const handleResizeStart = (e) => {
-    e.stopPropagation()
-    setIsResizing(true)
-  }
+    const handleMouseUp = () => {
+      setIsDragging(false)
+      setIsResizing(false)
+      setResizeEdge(null)
+    }
+
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [isDragging, isResizing, resizeEdge, size])
 
   return (
     <>
@@ -475,7 +631,7 @@ function ScreenShareTile({ stream, label }) {
         }}>
           <span style={{ fontSize: 12 }}>💻</span>
           <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', fontFamily: "'JetBrains Mono',monospace" }}>{label}</span>
-          <span style={{ marginLeft: 'auto', fontSize: 10, color: T.textDim }}>Clique para expandir ⤢</span>
+          <span style={{ marginLeft: 'auto', fontSize: 10, color: T.textDim }}>Clique para expandir</span>
         </div>
       </div>
 
@@ -495,6 +651,7 @@ function ScreenShareTile({ stream, label }) {
 
           {/* Floating window */}
           <div
+            ref={floatWindowRef}
             style={{
               position: 'fixed',
               zIndex: 9999,
@@ -517,6 +674,22 @@ function ScreenShareTile({ stream, label }) {
               overflow: 'hidden',
             }}
           >
+            {/* Resize handles (only when not maximized) */}
+            {!isMaximized && (
+              <>
+                {/* Edges */}
+                <div onMouseDown={(e) => handleResizeStart(e, 'n')} style={{ position: 'absolute', top: -4, left: 16, right: 16, height: 8, cursor: 'ns-resize', zIndex: 10 }} />
+                <div onMouseDown={(e) => handleResizeStart(e, 's')} style={{ position: 'absolute', bottom: -4, left: 16, right: 16, height: 8, cursor: 'ns-resize', zIndex: 10 }} />
+                <div onMouseDown={(e) => handleResizeStart(e, 'w')} style={{ position: 'absolute', left: -4, top: 16, bottom: 16, width: 8, cursor: 'ew-resize', zIndex: 10 }} />
+                <div onMouseDown={(e) => handleResizeStart(e, 'e')} style={{ position: 'absolute', right: -4, top: 16, bottom: 16, width: 8, cursor: 'ew-resize', zIndex: 10 }} />
+                {/* Corners */}
+                <div onMouseDown={(e) => handleResizeStart(e, 'nw')} style={{ position: 'absolute', top: -4, left: -4, width: 16, height: 16, cursor: 'nw-resize', zIndex: 11 }} />
+                <div onMouseDown={(e) => handleResizeStart(e, 'ne')} style={{ position: 'absolute', top: -4, right: -4, width: 16, height: 16, cursor: 'ne-resize', zIndex: 11 }} />
+                <div onMouseDown={(e) => handleResizeStart(e, 'sw')} style={{ position: 'absolute', bottom: -4, left: -4, width: 16, height: 16, cursor: 'sw-resize', zIndex: 11 }} />
+                <div onMouseDown={(e) => handleResizeStart(e, 'se')} style={{ position: 'absolute', bottom: -4, right: -4, width: 16, height: 16, cursor: 'se-resize', zIndex: 11 }} />
+              </>
+            )}
+
             {/* Title bar - draggable */}
             <div
               onMouseDown={handleMouseDown}
@@ -527,8 +700,9 @@ function ScreenShareTile({ stream, label }) {
                 display: 'flex',
                 alignItems: 'center',
                 gap: 8,
-                cursor: isMaximized ? 'default' : 'move',
+                cursor: isMaximized ? 'default' : (isDragging ? 'grabbing' : 'grab'),
                 userSelect: 'none',
+                flexShrink: 0,
               }}
             >
               <span style={{ fontSize: 14 }}>💻</span>
@@ -562,7 +736,7 @@ function ScreenShareTile({ stream, label }) {
             </div>
 
             {/* Video content */}
-            <div style={{ flex: 1, background: '#000', position: 'relative' }}>
+            <div style={{ flex: 1, background: '#000', position: 'relative', minHeight: 0 }}>
               {stream && (
                 <video
                   ref={floatVideoRef}
@@ -577,20 +751,23 @@ function ScreenShareTile({ stream, label }) {
               )}
             </div>
 
-            {/* Resize handle (only when not maximized) */}
-            {!isMaximized && (
-              <div
-                onMouseDown={handleResizeStart}
-                style={{
-                  position: 'absolute',
-                  right: 0, bottom: 0,
-                  width: 20, height: 20,
-                  cursor: 'se-resize',
-                  background: 'linear-gradient(135deg, transparent 50%, rgba(255,255,255,0.2) 50%)',
-                  borderRadius: '0 0 10px 0',
-                }}
-              />
-            )}
+            {/* Controls bar - always visible */}
+            <div style={{
+              padding: '10px 16px',
+              background: 'rgba(0,0,0,0.95)',
+              borderTop: `1px solid ${T.border}`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              flexShrink: 0,
+            }}>
+              <CallBtn active={!isMuted} danger={isMuted} onClick={onToggleMute} icon={isMuted ? '🔇' : '🎙'} label={isMuted ? 'Mutado' : 'Mic'} />
+              <CallBtn active={!isCamOff} onClick={onToggleCamera} icon={isCamOff ? '📵' : '📹'} label={isCamOff ? 'Cam off' : 'Cam'} />
+              <CallBtn active={isScreenSharing} onClick={onToggleScreenShare} icon="💻" label={isScreenSharing ? 'Parando' : 'Tela'} />
+              <div style={{ width: 1, height: 24, background: T.border, margin: '0 4px' }} />
+              <CallBtn danger onClick={onLeaveCall} icon="❌" label="Sair" />
+            </div>
 
             {/* Status bar */}
             <div style={{
@@ -603,9 +780,13 @@ function ScreenShareTile({ stream, label }) {
               fontSize: 10,
               color: T.textDim,
               fontFamily: "'JetBrains Mono',monospace",
+              flexShrink: 0,
             }}>
-              <span>🔴 Ao vivo</span>
-              <span style={{ marginLeft: 'auto' }}>Arraste a barra de título para mover • ESC para fechar</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: T.danger, animation: 'pulse 1.5s infinite' }} />
+                Ao vivo
+              </span>
+              <span style={{ marginLeft: 'auto' }}>Arraste para mover • Redimensione pelas bordas • ESC para fechar</span>
             </div>
           </div>
         </>
