@@ -241,6 +241,32 @@ export function useVoiceCall(userId, options = {}) {
         if (isScreenSharingRef.current) {
           sendSignal({ from: userIdRef.current, to: peerId, type: 'screen-state', sharing: true, room: callRoomRef.current })
         }
+
+        // If we have video (camera on), trigger renegotiation to ensure peer receives our video
+        // This fixes the issue where peer joins with camera off and doesn't receive our video
+        if (!isCamOffRef.current && localStreamRef.current) {
+          const hasVideoTrack = localStreamRef.current.getVideoTracks().length > 0
+          if (hasVideoTrack) {
+            console.log('[VoiceCall] We have video, triggering renegotiation with', peerId)
+            setTimeout(async () => {
+              try {
+                if (!peersRef.current[peerId]) return
+                const currentPc = peersRef.current[peerId]
+                if (currentPc.connectionState !== 'connected') return
+
+                makingOfferRef.current[peerId] = true
+                const offer = await currentPc.createOffer()
+                await currentPc.setLocalDescription(offer)
+                sendSignal({ from: userIdRef.current, to: peerId, type: 'offer', sdp: currentPc.localDescription.sdp, room: callRoomRef.current })
+                console.log('[VoiceCall] Sent renegotiation offer to', peerId)
+                makingOfferRef.current[peerId] = false
+              } catch (e) {
+                console.warn('[VoiceCall] Renegotiation failed:', e)
+                makingOfferRef.current[peerId] = false
+              }
+            }, 500)
+          }
+        }
       }
       else if (['disconnected', 'failed', 'closed'].includes(pc.connectionState)) cleanupPeer(peerId)
     }
@@ -504,7 +530,46 @@ export function useVoiceCall(userId, options = {}) {
       return
     }
     if (payload.type === 'cam-state') {
+      console.log('[VoiceCall] Received cam-state from', peerId, 'camOff:', payload.camOff)
       setCallPeers(prev => prev[peerId] ? { ...prev, [peerId]: { ...prev[peerId], camOff: payload.camOff } } : prev)
+
+      // If peer has camera ON but we don't have their video stream, request renegotiation
+      if (!payload.camOff && activeRef.current) {
+        setTimeout(() => {
+          // Check if we have video from this peer
+          const pc = peersRef.current[peerId]
+          if (!pc) return
+
+          const receivers = pc.getReceivers()
+          const hasVideoReceiver = receivers.some(r => r.track && r.track.kind === 'video' && r.track.readyState === 'live')
+
+          if (!hasVideoReceiver) {
+            console.log('[VoiceCall] Peer', peerId, 'has camera ON but we have no video - requesting renegotiation')
+            // Ask peer to send us a new offer with their video
+            sendSignal({ from: userIdRef.current, to: peerId, type: 'request-renegotiation', room: callRoomRef.current })
+          }
+        }, 300)
+      }
+      return
+    }
+    if (payload.type === 'request-renegotiation') {
+      console.log('[VoiceCall] Received renegotiation request from', peerId)
+      const pc = peersRef.current[peerId]
+      if (pc && pc.connectionState === 'connected' && !makingOfferRef.current[peerId]) {
+        (async () => {
+          try {
+            makingOfferRef.current[peerId] = true
+            const offer = await pc.createOffer()
+            await pc.setLocalDescription(offer)
+            sendSignal({ from: userIdRef.current, to: peerId, type: 'offer', sdp: pc.localDescription.sdp, room: callRoomRef.current })
+            console.log('[VoiceCall] Sent renegotiation offer to', peerId)
+            makingOfferRef.current[peerId] = false
+          } catch (e) {
+            console.warn('[VoiceCall] Renegotiation failed:', e)
+            makingOfferRef.current[peerId] = false
+          }
+        })()
+      }
       return
     }
     if (payload.type === 'screen-state') {
