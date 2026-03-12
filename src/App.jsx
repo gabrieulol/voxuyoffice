@@ -624,12 +624,10 @@ export default function App() {
 
     if (newPeerIds.length > 0) {
       console.log('[AutoCall] New peers detected in room:', newPeerIds)
-      // Send peer-joined again to trigger connection with new peers
-      // The WebRTC signaling will handle the actual connection
-      newPeerIds.forEach(peerId => {
-        // Signal that we want to connect
-        sendSignal({ from: user.id, to: peerId, type: 'peer-joined', room: callRoom })
-      })
+      // Broadcast peer-joined to trigger connection with new peers
+      // Broadcasting to '*' ensures everyone receives it, including new peers who might not have us in their list
+      // The WebRTC signaling will handle the actual connection (peers with existing healthy connections will skip)
+      sendSignal({ from: user.id, to: '*', type: 'peer-joined', room: callRoom })
     }
 
     previousPeersInRoomRef.current = currentPeerIds

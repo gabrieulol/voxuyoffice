@@ -503,6 +503,15 @@ export function useVoiceCall(userId, options = {}) {
         console.log('[VoiceCall] Creating peer connection with:', peerId, 'shouldInitiate:', shouldInitiate, '(myId:', userId, ')')
         createPeer(peerId, shouldInitiate)
 
+        // If we're NOT the initiator, we need to tell the other peer to connect to us
+        // This handles the case where they don't have us in their peer list due to presence sync delays
+        if (!shouldInitiate) {
+          console.log('[VoiceCall] Not initiator - sending peer-joined back to', peerId, 'to prompt their connection')
+          setTimeout(() => {
+            sendSignal({ from: userId, to: peerId, type: 'peer-joined', room: callRoomRef.current })
+          }, 100)
+        }
+
         // Send our current media state to the new peer after connection is established
         setTimeout(() => {
           // Notify about mute state
